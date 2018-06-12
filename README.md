@@ -1,3 +1,3 @@
 # wapi
 
-RBKmoney public Wallet REST API.
+Adapter for RBKmoney public Wallet REST API.
