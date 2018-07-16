@@ -1,0 +1,4 @@
+:name "edts_wapi"
+:node-name "edts_wapi"
+:lib-dirs '("_build/default/lib" "_build/test/lib" "apps")
+:app-include-dirs '("include" "test")

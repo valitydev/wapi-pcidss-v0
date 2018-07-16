@@ -1,0 +1,6 @@
+-sname wapi
+
+-setcookie wapi_cookie
+
++K true
++A 10
