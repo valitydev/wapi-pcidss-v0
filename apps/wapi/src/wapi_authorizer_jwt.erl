@@ -351,6 +351,14 @@ decode_roles(Claims = #{
     }
 }) when is_list(Roles) ->
     {Roles, maps:remove(<<"resource_access">>, Claims)};
+decode_roles(Claims = #{
+    <<"resource_access">> := #{
+        <<"wallet-api">> := #{
+            <<"roles">> := Roles
+        }
+    }
+}) when is_list(Roles) ->
+    {Roles, maps:remove(<<"resource_access">>, Claims)};
 decode_roles(_) ->
     throw({invalid_token, {missing, acl}}).
 
