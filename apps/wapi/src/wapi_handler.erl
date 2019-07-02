@@ -52,7 +52,7 @@
 -spec handle_request(operation_id(), req_data(), swagger_context(), module(), opts()) ->
     request_result().
 handle_request(OperationID, Req, SwagContext = #{auth_context := AuthContext}, Handler, Opts) ->
-    _ = lager:info("Processing request ~p", [OperationID]),
+    _ = logger:info("Processing request ~p", [OperationID]),
     try
         case wapi_auth:authorize_operation(OperationID, Req, AuthContext) of
             ok ->
@@ -61,7 +61,7 @@ handle_request(OperationID, Req, SwagContext = #{auth_context := AuthContext}, H
                 Handler:process_request(OperationID, Req, Context, Opts)
             %% ToDo: return back as soon, as authorization is implemented
             %% {error, _} = Error ->
-            %%     _ = lager:info("Operation ~p authorization failed due to ~p", [OperationID, Error]),
+            %%     _ = logger:info("Operation ~p authorization failed due to ~p", [OperationID, Error]),
             %%     wapi_handler_utils:reply_error(401, wapi_handler_utils:get_error_msg(<<"Unauthorized operation">>))
         end
     catch
@@ -81,7 +81,7 @@ throw_result(Res) ->
 create_woody_context(#{'X-Request-ID' := RequestID}, AuthContext, Opts) ->
     RpcID = #{trace_id := TraceID} = woody_context:new_rpc_id(genlib:to_binary(RequestID)),
     ok = scoper:add_meta(#{request_id => RequestID, trace_id => TraceID}),
-    _ = lager:debug("Created TraceID for the request"),
+    _ = logger:debug("Created TraceID for the request"),
     woody_user_identity:put(collect_user_identity(AuthContext, Opts), woody_context:new(RpcID)).
 
 -define(APP, wapi).

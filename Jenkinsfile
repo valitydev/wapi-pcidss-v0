@@ -33,7 +33,7 @@ build('wapi', 'docker-host', finalHook) {
         sh 'make wc_xref'
       }
       runStage('dialyze') {
-        withWsCache("_build/default/rebar3_19.3_plt") {
+        withWsCache("_build/default/rebar3_21.8.3.4_plt") {
           sh 'make wc_dialyze'
         }
       }
