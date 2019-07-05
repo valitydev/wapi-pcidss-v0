@@ -20,7 +20,7 @@
 -type operation_id()    :: swag_server_privdoc:operation_id().
 -type api_key()         :: swag_server_privdoc:api_key().
 -type request_context() :: swag_server_privdoc:request_context().
--type handler_opts()    :: swag_server_privdoc:handler_opts().
+-type handler_opts()    :: swag_server_privdoc:handler_opts(term()).
 
 
 %% API

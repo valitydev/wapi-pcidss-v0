@@ -27,9 +27,13 @@
 -type status_code()   :: wapi_handler:status_code().
 -type headers()       :: wapi_handler:headers().
 -type response_data() :: wapi_handler:response_data().
+-type route_match()   :: '_' | iodata(). % cowoby_router:route_match()
 
+-type party_id() :: binary().
 -type owner() :: binary().
 -export_type([owner/0]).
+-export_type([party_id/0]).
+-export_type([route_match/0]).
 
 %% API
 
@@ -86,9 +90,9 @@ reply(Status, Code, Data, Headers) ->
 throw_not_implemented() ->
     wapi_handler:throw_result(reply_error(501)).
 
--spec get_location(cowboy_router:route_match(), [binary()], handler_opts()) ->
+-spec get_location(route_match(), [binary()], handler_opts()) ->
     headers().
 get_location(PathSpec, Params, _Opts) ->
     %% TODO pass base URL via Opts
     BaseUrl = genlib_app:env(?APP, public_endpoint),
-    [{<<"Location">>, wapi_utils:get_url(BaseUrl, PathSpec, Params)}].
+    #{<<"Location">> => wapi_utils:get_url(BaseUrl, PathSpec, Params)}.

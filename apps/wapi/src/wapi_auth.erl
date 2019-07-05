@@ -16,6 +16,7 @@
 -type context () :: wapi_authorizer_jwt:t().
 -type claims  () :: wapi_authorizer_jwt:claims().
 -type consumer() :: client | merchant | provider.
+-type timestamp() :: {calendar:datetime(), 0..999999}. % machinery:timestamp()
 
 -export_type([context /0]).
 -export_type([claims  /0]).
@@ -25,8 +26,8 @@
 
 -type api_key() ::
     %% swag_wallet_server:api_key() |
-    swag_payres_server:api_key() |
-    swag_privdoc_server:api_key().
+    swag_server_payres:api_key() |
+    swag_server_privdoc:api_key().
 
 -type handler_opts() :: wapi_handler:opts().
 
@@ -116,7 +117,7 @@ issue_access_token(PartyID, TokenSpec) ->
     issue_access_token(PartyID, TokenSpec, unlimited).
 
 -type expiration() ::
-    {deadline, machinery:timestamp() | pos_integer()} |
+    {deadline, timestamp() | pos_integer()} |
     {lifetime, Seconds :: pos_integer()}              |
     unlimited                                         .
 

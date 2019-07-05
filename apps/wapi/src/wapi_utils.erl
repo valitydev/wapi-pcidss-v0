@@ -118,7 +118,7 @@ define(undefined, V) ->
 define(V, _Default) ->
     V.
 
--spec get_path(cowboy_router:route_match(), [binding_value()]) ->
+-spec get_path(wapi_handler_utils:route_match(), [binding_value()]) ->
     path().
 get_path(PathSpec, Params) when is_list(PathSpec) ->
     get_path(genlib:to_binary(PathSpec), Params);
@@ -146,7 +146,7 @@ get_next(PathSpec) ->
 get_url(BaseUrl, Path) ->
     <<BaseUrl/binary, Path/binary>>.
 
--spec get_url(url(), cowboy_router:route_match(), [binding_value()]) ->
+-spec get_url(url(), wapi_handler_utils:route_match(), [binding_value()]) ->
     url().
 get_url(BaseUrl, PathSpec, Params) ->
     get_url(BaseUrl, get_path(PathSpec, Params)).

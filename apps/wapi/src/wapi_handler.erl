@@ -23,8 +23,8 @@
 
 -type opts() ::
     %% swag_server_wallet:handler_opts() |
-    swag_server_payres:handler_opts() |
-    swag_server_privdoc:handler_opts().
+    swag_server_payres:handler_opts(term()) |
+    swag_server_privdoc:handler_opts(term()).
 
 -type req_data()         :: #{atom() | binary() => term()}.
 -type status_code()      :: 200..599.
