@@ -60,9 +60,8 @@ squash_routes(Routes) ->
 mk_operation_id_getter(#{env := Env}) ->
     fun (Req) ->
         case cowboy_router:execute(Req, Env) of
-            {ok, _, #{handler_opts := {Operations, _Handler}}} ->
-                Method = cowboy_req:method(Req),
-                case maps:get(Method, Operations, undefined) of
+            {ok, _, #{handler_opts := {_Operations, _LogicHandler, _SwaggerHandlerOpts} = HandlerOpts}} ->
+                case swag_server_payres_utils:get_operation_id(Req, HandlerOpts) of
                     undefined ->
                         #{};
                     OperationID ->
