@@ -60,7 +60,7 @@ handle_request(OperationID, Req, SwagContext = #{auth_context := AuthContext}, H
         try
             case wapi_auth:authorize_operation(OperationID, Req, AuthContext) of
                 ok ->
-                    WoodyContext = create_woody_context(Req, AuthContext, Opts),
+                    WoodyContext = create_woody_context(RpcID, AuthContext, Opts),
                     Context = create_handler_context(SwagContext, WoodyContext),
                     Handler:process_request(OperationID, Req, Context, Opts)
                 %% ToDo: return back as soon, as authorization is implemented
