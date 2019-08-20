@@ -66,7 +66,8 @@ handle_request(OperationID, Req, SwagContext = #{auth_context := AuthContext}, H
                 %% ToDo: return back as soon, as authorization is implemented
                 %% {error, _} = Error ->
                 %%     _ = logger:info("Operation ~p authorization failed due to ~p", [OperationID, Error]),
-                %%     wapi_handler_utils:reply_error(401, wapi_handler_utils:get_error_msg(<<"Unauthorized operation">>))
+                %%     wapi_handler_utils:reply_error(401,
+                %%         wapi_handler_utils:get_error_msg(<<"Unauthorized operation">>))
             end
         catch
             throw:{?request_result, Result} ->
