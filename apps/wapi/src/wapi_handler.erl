@@ -52,37 +52,72 @@
 -spec handle_request(operation_id(), req_data(), swagger_context(), module(), opts()) ->
     request_result().
 handle_request(OperationID, Req, SwagContext = #{auth_context := AuthContext}, Handler, Opts) ->
-    _ = logger:info("Processing request ~p", [OperationID]),
-    try
-        case wapi_auth:authorize_operation(OperationID, Req, AuthContext) of
-            ok ->
-                WoodyContext = create_woody_context(Req, AuthContext, Opts),
-                Context = create_handler_context(SwagContext, WoodyContext),
-                Handler:process_request(OperationID, Req, Context, Opts)
-            %% ToDo: return back as soon, as authorization is implemented
-            %% {error, _} = Error ->
-            %%     _ = logger:info("Operation ~p authorization failed due to ~p", [OperationID, Error]),
-            %%     wapi_handler_utils:reply_error(401, wapi_handler_utils:get_error_msg(<<"Unauthorized operation">>))
+    scoper:scope(swagger, fun() ->
+        RpcID = create_rpc_id(Req),
+        ok = set_rpc_meta(RpcID),
+        ok = set_request_meta(OperationID, Req),
+        _ = logger:info("Processing request ~p", [OperationID]),
+        try
+            case wapi_auth:authorize_operation(OperationID, Req, AuthContext) of
+                ok ->
+                    WoodyContext = create_woody_context(Req, AuthContext, Opts),
+                    Context = create_handler_context(SwagContext, WoodyContext),
+                    Handler:process_request(OperationID, Req, Context, Opts)
+                %% ToDo: return back as soon, as authorization is implemented
+                %% {error, _} = Error ->
+                %%     _ = logger:info("Operation ~p authorization failed due to ~p", [OperationID, Error]),
+                %%     wapi_handler_utils:reply_error(401, wapi_handler_utils:get_error_msg(<<"Unauthorized operation">>))
+            end
+        catch
+            throw:{?request_result, Result} ->
+                Result;
+            error:{woody_error, {Source, Class, Details}} ->
+                process_woody_error(Source, Class, Details);
+            Class:Reason:Stacktrace ->
+                process_general_error(Class, Reason, Stacktrace, Req, SwagContext)
+        after
+            ok = clear_rpc_meta()
         end
-    catch
-        throw:{?request_result, Result} ->
-            Result;
-        error:{woody_error, {Source, Class, Details}} ->
-            process_woody_error(Source, Class, Details)
-    end.
+    end).
 
 -spec throw_result(request_result()) ->
     no_return().
 throw_result(Res) ->
     erlang:throw({?request_result, Res}).
 
+-spec create_rpc_id(req_data()) ->
+    woody:rpc_id().
+create_rpc_id(#{'X-Request-ID' := RequestID}) ->
+    woody_context:new_rpc_id(genlib:to_binary(RequestID)).
+
 -spec create_woody_context(req_data(), wapi_auth:context(), opts()) ->
     woody_context:ctx().
-create_woody_context(#{'X-Request-ID' := RequestID}, AuthContext, Opts) ->
-    RpcID = #{trace_id := TraceID} = woody_context:new_rpc_id(genlib:to_binary(RequestID)),
-    ok = scoper:add_meta(#{request_id => RequestID, trace_id => TraceID}),
-    _ = logger:debug("Created TraceID for the request"),
+create_woody_context(RpcID, AuthContext, Opts) ->
     woody_user_identity:put(collect_user_identity(AuthContext, Opts), woody_context:new(RpcID)).
+
+-spec set_rpc_meta(woody:rpc_id()) ->
+    ok.
+set_rpc_meta(RpcID) ->
+    %% trace_id, parent_id and span_id must be top-level meta keys
+    logger:update_process_metadata(maps:with([trace_id, parent_id, span_id], RpcID)).
+
+-spec clear_rpc_meta() ->
+    ok.
+clear_rpc_meta() ->
+    case logger:get_process_metadata() of
+        undefined ->
+            ok;
+        Metadata ->
+            logger:set_process_metadata(maps:without([trace_id, parent_id, span_id], Metadata))
+    end.
+
+-spec set_request_meta(operation_id(), req_data()) -> ok.
+set_request_meta(OperationID, #{'X-Request-ID' := RequestID}) ->
+    Meta = #{
+        operation_id => OperationID,
+        request_id   => RequestID
+    },
+    scoper:add_meta(Meta).
 
 -define(APP, wapi).
 
@@ -106,3 +141,15 @@ create_handler_context(SwagContext, WoodyContext) ->
 process_woody_error(_Source, result_unexpected   , _Details) -> wapi_handler_utils:reply_error(500);
 process_woody_error(_Source, resource_unavailable, _Details) -> wapi_handler_utils:reply_error(503);
 process_woody_error(_Source, result_unknown      , _Details) -> wapi_handler_utils:reply_error(504).
+
+process_general_error(Class, Reason, Stacktrace, Req, SwagContext) ->
+    _ = logger:error(
+        "Operation failed due to ~p:~p given req: ~p and context: ~p",
+        [Class, Reason, Req, SwagContext],
+        #{error => #{
+            class       => genlib:to_binary(Class),
+            reason      => genlib:format(Reason),
+            stack_trace => genlib_format:format_stacktrace(Stacktrace)
+        }}
+    ),
+    wapi_handler_utils:reply_error(500).
