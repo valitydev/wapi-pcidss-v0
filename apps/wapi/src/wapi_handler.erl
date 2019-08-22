@@ -52,34 +52,32 @@
 -spec handle_request(operation_id(), req_data(), swagger_context(), module(), opts()) ->
     request_result().
 handle_request(OperationID, Req, SwagContext = #{auth_context := AuthContext}, Handler, Opts) ->
-    scoper:scope(swagger, fun() ->
-        RpcID = create_rpc_id(Req),
-        ok = set_rpc_meta(RpcID),
-        ok = set_request_meta(OperationID, Req),
-        _ = logger:info("Processing request ~p", [OperationID]),
-        try
-            case wapi_auth:authorize_operation(OperationID, Req, AuthContext) of
-                ok ->
-                    WoodyContext = create_woody_context(RpcID, AuthContext, Opts),
-                    Context = create_handler_context(SwagContext, WoodyContext),
-                    Handler:process_request(OperationID, Req, Context, Opts)
-                %% ToDo: return back as soon, as authorization is implemented
-                %% {error, _} = Error ->
-                %%     _ = logger:info("Operation ~p authorization failed due to ~p", [OperationID, Error]),
-                %%     wapi_handler_utils:reply_error(401,
-                %%         wapi_handler_utils:get_error_msg(<<"Unauthorized operation">>))
-            end
-        catch
-            throw:{?request_result, Result} ->
-                Result;
-            error:{woody_error, {Source, Class, Details}} ->
-                process_woody_error(Source, Class, Details);
-            Class:Reason:Stacktrace ->
-                process_general_error(Class, Reason, Stacktrace, Req, SwagContext)
-        after
-            ok = clear_rpc_meta()
+    RpcID = create_rpc_id(Req),
+    ok = set_rpc_meta(RpcID),
+    ok = set_request_meta(Req),
+    _ = logger:info("Processing request ~p", [OperationID]),
+    try
+        case wapi_auth:authorize_operation(OperationID, Req, AuthContext) of
+            ok ->
+                WoodyContext = create_woody_context(RpcID, AuthContext, Opts),
+                Context = create_handler_context(SwagContext, WoodyContext),
+                Handler:process_request(OperationID, Req, Context, Opts)
+            %% ToDo: return back as soon, as authorization is implemented
+            %% {error, _} = Error ->
+            %%     _ = logger:info("Operation ~p authorization failed due to ~p", [OperationID, Error]),
+            %%     wapi_handler_utils:reply_error(401,
+            %%         wapi_handler_utils:get_error_msg(<<"Unauthorized operation">>))
         end
-    end).
+    catch
+        throw:{?request_result, Result} ->
+            Result;
+        error:{woody_error, {Source, Class, Details}} ->
+            process_woody_error(Source, Class, Details);
+        Class:Reason:Stacktrace ->
+            process_general_error(Class, Reason, Stacktrace, Req, SwagContext)
+    after
+        ok = clear_rpc_meta()
+    end.
 
 -spec throw_result(request_result()) ->
     no_return().
@@ -112,13 +110,9 @@ clear_rpc_meta() ->
             logger:set_process_metadata(maps:without([trace_id, parent_id, span_id], Metadata))
     end.
 
--spec set_request_meta(operation_id(), req_data()) -> ok.
-set_request_meta(OperationID, #{'X-Request-ID' := RequestID}) ->
-    Meta = #{
-        operation_id => OperationID,
-        request_id   => RequestID
-    },
-    scoper:add_meta(Meta).
+-spec set_request_meta(req_data()) -> ok.
+set_request_meta(#{'X-Request-ID' := RequestID}) ->
+    scoper:add_meta(#{request_id => RequestID}).
 
 -define(APP, wapi).
 

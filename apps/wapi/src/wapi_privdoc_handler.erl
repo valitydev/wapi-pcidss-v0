@@ -28,13 +28,19 @@
 -spec authorize_api_key(operation_id(), api_key(), handler_opts()) ->
     false | {true, wapi_auth:context()}.
 authorize_api_key(OperationID, ApiKey, Opts) ->
-    ok = scoper:add_meta(#{api => privdoc, operation_id => OperationID}),
-    wapi_auth:authorize_api_key(OperationID, ApiKey, Opts).
+    scope(OperationID, fun () ->
+        wapi_auth:authorize_api_key(OperationID, ApiKey, Opts)
+    end).
 
 -spec handle_request(operation_id(), req_data(), request_context(), handler_opts()) ->
     request_result().
 handle_request(OperationID, Params, SwagContext, Opts) ->
-    wapi_handler:handle_request(OperationID, Params, SwagContext, ?MODULE, Opts).
+    scope(OperationID, fun () ->
+        wapi_handler:handle_request(OperationID, Params, SwagContext, ?MODULE, Opts)
+    end).
+
+scope(OperationID, Fun) ->
+    scoper:scope(swagger, #{api => privdoc, operation_id => OperationID}, Fun).
 
 -spec process_request(operation_id(), req_data(), handler_context(), handler_opts()) ->
     request_result().
