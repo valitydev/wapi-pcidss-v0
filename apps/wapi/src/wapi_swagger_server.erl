@@ -25,7 +25,10 @@ get_socket_transport() ->
     {ok, IP}      = inet:parse_address(genlib_app:env(?APP, ip, ?DEFAULT_IP_ADDR)),
     Port          = genlib_app:env(?APP, port, ?DEFAULT_PORT),
     AcceptorsPool = genlib_app:env(?APP, acceptors_poolsize, ?DEFAULT_ACCEPTORS_POOLSIZE),
-    {ranch_tcp, [{ip, IP}, {port, Port}, {num_acceptors, AcceptorsPool}]}.
+    {ranch_tcp, #{
+        num_acceptors => AcceptorsPool,
+        socket_opts   => [{ip, IP}, {port, Port}]
+    }}.
 
 get_cowboy_config(HealthRoutes, LogicHandlers) ->
     Dispatch =
