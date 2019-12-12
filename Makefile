@@ -81,7 +81,7 @@ cover:
 
 # CALL_W_CONTAINER
 test: submodules generate
-	$(REBAR) do eunit #, ct
+	$(REBAR) do eunit, ct
 
 SWAGGER_CODEGEN = $(call which, swagger-codegen)
 SWAGGER_SCHEME_BASE_PATH := schemes/swag

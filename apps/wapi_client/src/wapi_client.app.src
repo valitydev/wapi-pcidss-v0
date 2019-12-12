@@ -1,0 +1,11 @@
+{application, wapi_client , [
+    {description, "An api wrapper for generated swag_clients."},
+    {vsn, "0.1.0"},
+    {applications, [
+        kernel,
+        stdlib,
+        swag_client_payres,
+        swag_client_privdoc,
+        genlib
+    ]}
+]}.
