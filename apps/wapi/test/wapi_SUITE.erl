@@ -62,7 +62,7 @@ end_per_suite(C) ->
 -spec init_per_group(group_name(), config()) -> config().
 
 init_per_group(default, Config) ->
-    Token = wapi_ct_helper:issue_token([{[party], write}], unlimited), % TODO
+    Token = wapi_ct_helper:issue_token([{[party], write}, {[party], read}], unlimited),
     [{context, wapi_ct_helper:get_context(Token)} | Config].
 
 -spec end_per_group(group_name(), config()) -> _.

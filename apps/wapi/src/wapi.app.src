@@ -22,7 +22,8 @@
         snowflake,
         woody_user_identity,
         erl_health,
-        identdocstore_proto
+        identdocstore_proto,
+        uac
     ]},
     {env, []}
 ]}.
