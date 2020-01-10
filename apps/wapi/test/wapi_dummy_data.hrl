@@ -2,6 +2,7 @@
 -define(PAN, <<"4242424242424242">>).
 -define(CVV, 123).
 -define(EXP_DATE, <<"01/21">>).
+-define(DATE, <<"2016-03-22">>).
 
 -define(BIN(CardNumber), string:slice(CardNumber, 0, 6)).
 
@@ -42,4 +43,17 @@
     <<"cardNumber">> => CardNumber,
     <<"expDate">>    => ?EXP_DATE,
     <<"cardHolder">> => ?STRING
+}).
+
+-define(STORE_PRIVATE_DOCUMENT_REQUEST, #{
+        <<"type">> => <<"RUSDomesticPassportData">>,
+        <<"series">> => <<"1234">>,
+        <<"number">> => <<"123456">>,
+        <<"issuer">> => ?STRING,
+        <<"issuerCode">> => <<"123-123">>,
+        <<"issuedAt">> => ?DATE,
+        <<"familyName">> => ?STRING,
+        <<"firstName">> => ?STRING,
+        <<"birthDate">> => ?DATE,
+        <<"birthPlace">> => ?STRING
 }).

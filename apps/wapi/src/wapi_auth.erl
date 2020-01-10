@@ -116,7 +116,9 @@ get_claim(ClaimName, {_Id, _Subject, Claims}, Default) ->
 get_operation_access('StoreBankCard', _) ->
     [{[party], write}];
 get_operation_access('GetBankCard', _) ->
-    [{[party], read}].
+    [{[party], read}];
+get_operation_access('StorePrivateDocument', _) ->
+    [{[party], write}].
 
 -spec get_resource_hierarchy() -> #{atom() => map()}.
 

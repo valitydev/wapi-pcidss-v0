@@ -9,6 +9,7 @@
         public_key,
         genlib,
         woody,
+        wapi_woody_client,
         scoper,
         dmsl,
         %% swag_server_wallet,
