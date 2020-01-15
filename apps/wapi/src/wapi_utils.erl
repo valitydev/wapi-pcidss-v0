@@ -17,6 +17,7 @@
 -export([get_url/3]).
 
 -export([get_last_pan_digits/1]).
+-export([decode_masked_pan/3]).
 
 -export([get_unique_id/0]).
 
@@ -161,6 +162,13 @@ get_last_pan_digits(MaskedPan) when byte_size(MaskedPan) > ?MASKED_PAN_MAX_LENGT
     binary:part(MaskedPan, {byte_size(MaskedPan), -?MASKED_PAN_MAX_LENGTH});
 get_last_pan_digits(MaskedPan) ->
     MaskedPan.
+
+-spec decode_masked_pan(pos_integer(), binary(), binary()) ->
+    binary().
+
+decode_masked_pan(PanLen, Bin, LastDigits) ->
+    Mask = binary:copy(<<"*">>, PanLen - byte_size(Bin) - byte_size(LastDigits)),
+    <<Bin/binary, Mask/binary, LastDigits/binary>>.
 
 -spec get_unique_id() -> binary().
 

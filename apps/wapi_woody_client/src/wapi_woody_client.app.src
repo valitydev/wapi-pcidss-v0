@@ -6,7 +6,7 @@
         stdlib,
         genlib,
         thrift,
-        dmsl,
+        cds_proto,
         woody,
         scoper
     ]}

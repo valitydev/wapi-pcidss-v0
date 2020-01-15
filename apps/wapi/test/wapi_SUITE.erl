@@ -1,8 +1,9 @@
 -module(wapi_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
--include_lib("dmsl/include/dmsl_cds_thrift.hrl").
--include_lib("dmsl/include/dmsl_domain_thrift.hrl").
+
+-include_lib("fistful_proto/include/ff_proto_base_thrift.hrl").
+-include_lib("cds_proto/include/cds_proto_storage_thrift.hrl").
 -include_lib("stdlib/include/assert.hrl").
 -include_lib("wapi_dummy_data.hrl").
 
@@ -82,7 +83,7 @@ init_per_testcase(_Name, C) ->
     config().
 end_per_testcase(_Name, C) ->
     wapi_ct_helper:stop_mocked_service_sup(?config(test_sup, C)),
-    ok.    
+    ok.
 
 %%% Tests
 
