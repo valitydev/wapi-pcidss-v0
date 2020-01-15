@@ -89,7 +89,9 @@ decode_legacy_token(Token) ->
     end.
 
 process_card_data(CardData, CVV, Context) ->
-    {BankCardCDS, SessionID} = put_card_data_to_cds(to_thrift(card_data, CardData), to_thrift(session_data, CVV), Context),
+    CardDataThrift = to_thrift(card_data, CardData),
+    SessionThrift = to_thrift(session_data, CVV),
+    {BankCardCDS, SessionID} = put_card_data_to_cds(CardDataThrift, SessionThrift, Context),
     BankCard = construct_bank_card(BankCardCDS, CardData),
     case CVV of
         V when is_binary(V) ->
