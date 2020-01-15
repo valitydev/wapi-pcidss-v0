@@ -30,10 +30,6 @@
 
 -define(CARD_DATA(CardNumber), #'cds_CardData'{
     pan = CardNumber
-% ,
-%     exp_date = ?EXP_DATE,
-%     cardholder_name = ?STRING,
-%     cvv = ?CVV
 }).
 
 -define(STORE_BANK_CARD_REQUEST, ?STORE_BANK_CARD_REQUEST(?PAN)).
