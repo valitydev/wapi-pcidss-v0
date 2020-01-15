@@ -47,14 +47,9 @@ scope(OperationID, Fun) ->
 process_request('StoreBankCard', #{'BankCard' := CardData}, Context, _Opts) ->
     CVV = maps:get(<<"cvv">>, CardData, undefined),
     {BankCard, AuthData} = process_card_data(CardData, CVV, Context),
-    wapi_handler_utils:reply_ok(201, maps:merge(
-        to_swag(bank_card, construct_token(BankCard)),
-        to_swag(auth_data, AuthData)
-    ));
+    wapi_handler_utils:reply_ok(201, decode_bank_card(BankCard, AuthData));
 process_request('GetBankCard', #{'token' := Token}, _Context, _Opts) ->
-    try
-        BankCard = decrypt_token(Token),
-        wapi_handler_utils:reply_ok(200, to_swag(bank_card, BankCard))
+    try wapi_handler_utils:reply_ok(200, decrypt_token(Token))
     catch
         error:badarg ->
             wapi_handler_utils:reply_ok(404)
@@ -163,7 +158,7 @@ to_thrift(session_data, undefined) ->
         auth_data = {card_security_code, #'cds_CardSecurityCode'{value = <<>>}}
     }.
 
-construct_token(BankCard) ->
+decode_bank_card(BankCard, AuthData) ->
     #{
         bin := Bin,
         last_digits := LastDigits
@@ -172,17 +167,14 @@ construct_token(BankCard) ->
     genlib_map:compact(#{
         <<"token">>          => EncryptedToken,
         <<"bin">>            => Bin,
-        <<"lastDigits">>     => LastDigits
+        <<"lastDigits">>     => LastDigits,
+        <<"authData">>       => decode_auth_data(AuthData)
     }).
 
-to_swag(bank_card, BankCard) ->
-    genlib_map:compact(
-        maps:with([<<"token">>, <<"bin">>, <<"lastDigits">>], BankCard)
-    );
-to_swag(auth_data, PaymentSessionID) when is_binary(PaymentSessionID) ->
-    #{<<"authData">> => genlib:to_binary(PaymentSessionID)};
-to_swag(auth_data, undefined) ->
-    #{}.
+decode_auth_data(PaymentSessionID) when is_binary(PaymentSessionID) ->
+    genlib:to_binary(PaymentSessionID);
+decode_auth_data(undefined) ->
+    undefined.
 
 parse_exp_date(undefined) ->
     undefined;
