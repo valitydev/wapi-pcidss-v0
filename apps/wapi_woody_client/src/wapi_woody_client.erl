@@ -33,7 +33,7 @@ get_service_url(ServiceName) ->
 -spec get_service_modname(service_name()) -> woody:service().
 
 get_service_modname(cds_storage) ->
-    {dmsl_cds_thrift, 'Storage'};
+    {cds_proto_storage_thrift, 'Storage'};
 get_service_modname(identdoc_storage) ->
     {identdocstore_identity_document_storage_thrift, 'IdentityDocumentStorage'}.
 
