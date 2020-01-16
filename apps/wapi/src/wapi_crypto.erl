@@ -41,6 +41,7 @@ decrypt_bankcard_token(Token) ->
 token_version() ->
     <<"v1">>.
 
+%% Delete this code after add improved lechiffre(del deterministic encryption)
 create_encryption_params() ->
     #{iv => lechiffre:compute_iv(<<"">>)}.
 
