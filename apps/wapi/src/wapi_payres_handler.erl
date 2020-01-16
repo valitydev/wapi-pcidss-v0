@@ -69,8 +69,8 @@ decrypt_token(Token) ->
                 <<"bin">> => Bin,
                 <<"lastDigits">> => LastDigits
             };
-        {error, {decryption_failed, Error}} ->
-            logger:log(error, "Invalid payment tool token", [], #{decryption_failed => Error}),
+        {error, {decryption_failed, _} = Error} ->
+            logger:warning("Bank card token decryption failed: ~p", [Error]),
             erlang:error(badarg)
     end.
 
