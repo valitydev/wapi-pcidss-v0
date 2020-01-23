@@ -92,7 +92,8 @@ end_per_testcase(_Name, C) ->
 store_bank_card_success_test(C) ->
     CardNumber = <<"4150399999000900">>,
     wapi_ct_helper:mock_services([{cds_storage, fun
-        ('PutCardData', _) -> {ok, ?PUT_CARD_DATA_RESULT(CardNumber)}
+        ('PutCard',    _) -> {ok, ?PUT_CARD_RESULT(CardNumber)};
+        ('PutSession', _) -> {ok, ?PUT_SESSION_RESULT}
     end}], C),
     Bin        = ?BIN(CardNumber),
     LastDigits = ?LAST_DIGITS(CardNumber),
@@ -106,8 +107,8 @@ store_bank_card_success_test(C) ->
 get_bank_card_success_test(C) ->
     CardNumber = <<"4150399999000900">>,
     wapi_ct_helper:mock_services([{cds_storage, fun
-        ('PutCardData', _) -> {ok, ?PUT_CARD_DATA_RESULT(CardNumber)};
-        ('GetCardData', _) -> {ok, ?CARD_DATA(CardNumber)}
+        ('PutCard',     _) -> {ok, ?PUT_CARD_RESULT(CardNumber)};
+        ('PutSession',  _) -> {ok, ?PUT_SESSION_RESULT}
     end}], C),
     {ok, #{
         <<"token">> := Token

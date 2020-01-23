@@ -13,24 +13,19 @@
 
 -define(BANK_CARD, ?BANK_CARD(?PAN)).
 
--define(BANK_CARD(CardNumber), #'cds_BankCard'{
+-define(BANK_CARD(CardNumber), #cds_BankCard{
     token = ?STRING,
     last_digits = ?LAST_DIGITS(CardNumber),
     bin = ?BIN(CardNumber)
 }).
 
--define(PUT_CARD_DATA_RESULT, ?PUT_CARD_DATA_RESULT(?PAN)).
+-define(PUT_CARD_RESULT, ?PUT_CARD_RESULT(?PAN)).
 
--define(PUT_CARD_DATA_RESULT(CardNumber), #'cds_PutCardDataResult'{
-    bank_card = ?BANK_CARD(CardNumber),
-    session_id = ?STRING
+-define(PUT_CARD_RESULT(CardNumber), #cds_PutCardResult{
+    bank_card = ?BANK_CARD(CardNumber)
 }).
 
--define(CARD_DATA, ?CARD_DATA(?PAN)).
-
--define(CARD_DATA(CardNumber), #'cds_CardData'{
-    pan = CardNumber
-}).
+-define(PUT_SESSION_RESULT, ok).
 
 -define(STORE_BANK_CARD_REQUEST, ?STORE_BANK_CARD_REQUEST(?PAN)).
 

@@ -85,8 +85,9 @@ decode_legacy_token(Token) ->
 
 process_card_data(CardData, CVV, Context) ->
     CardDataThrift = to_thrift(card_data, CardData),
-    SessionThrift = to_thrift(session_data, CVV),
-    {BankCardCDS, SessionID} = put_card_data_to_cds(CardDataThrift, SessionThrift, Context),
+    SessionThrift  = to_thrift(session_data, CVV),
+    BankCardCDS = put_card_to_cds(CardDataThrift, Context),
+    SessionID   = put_session_to_cds(SessionThrift, Context),
     BankCard = construct_bank_card(BankCardCDS, CardData),
     case CVV of
         V when is_binary(V) ->
@@ -95,16 +96,26 @@ process_card_data(CardData, CVV, Context) ->
             {BankCard, undefined}
     end.
 
-put_card_data_to_cds(CardData, SessionData, Context) ->
-    Call = {cds_storage, 'PutCardData', [CardData, SessionData]},
+put_card_to_cds(CardData, Context) ->
+    Call = {cds_storage, 'PutCard', [CardData]},
     case service_call(Call, Context) of
-        {ok, #cds_PutCardDataResult{session_id = SessionID, bank_card = BankCard}} ->
-            {BankCard, SessionID};
+        {ok, #cds_PutCardResult{bank_card = BankCard}} ->
+            BankCard;
         {exception, #cds_InvalidCardData{}} ->
             wapi_handler:throw_result(wapi_handler_utils:reply_ok(422,
                 wapi_handler_utils:get_error_msg(<<"Card data is invalid">>)
             ))
     end.
+
+put_session_to_cds(SessionData, Context) ->
+    SessionID = make_random_id(),
+    Call = {cds_storage, 'PutSession', [SessionID, SessionData]},
+    {ok, ok} = service_call(Call, Context),
+    SessionID.
+
+make_random_id() ->
+    Random = crypto:strong_rand_bytes(16),
+    genlib_format:format_int_base(binary:decode_unsigned(Random), 62).
 
 construct_bank_card(BankCard, CardData) ->
     ExpDate = parse_exp_date(genlib_map:get(<<"expDate">>, CardData)),
@@ -150,13 +161,9 @@ to_thrift(exp_date, {Month, Year}) ->
         year = Year
     };
 to_thrift(session_data, CVV) when is_binary(CVV) ->
-    #'cds_SessionData'{
-        auth_data = {card_security_code, #'cds_CardSecurityCode'{value = CVV}}
-    };
+    #cds_SessionData{ auth_data = {card_security_code, #cds_CardSecurityCode{ value = CVV }}};
 to_thrift(session_data, undefined) ->
-    #'cds_SessionData'{
-        auth_data = {card_security_code, #'cds_CardSecurityCode'{value = <<>>}}
-    }.
+    #cds_SessionData{ auth_data = {card_security_code, #cds_CardSecurityCode{ value = <<>> }}}.
 
 decode_bank_card(BankCard, AuthData) ->
     #{
