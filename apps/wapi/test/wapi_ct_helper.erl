@@ -95,8 +95,7 @@ start_wapi(Config) ->
 -spec start_wapi(config(), list()) ->
     [app_name()].
 start_wapi(Config, ExtraEnv) ->
-    KeySource = get_keysource("keys/local/jwk.json", Config),
-    KeyPassword = get_keysource("keys/local/secret.password", Config),
+    JwkPath = get_keysource("keys/local/jwk.json", Config),
     WapiEnv = ExtraEnv ++ [
         {ip, ?WAPI_IP},
         {port, ?WAPI_PORT},
@@ -104,15 +103,14 @@ start_wapi(Config, ExtraEnv) ->
         {public_endpoint, <<"localhost:8080">>},
         {access_conf, #{
             jwt => #{
-                signee => wapi,
                 keyset => #{
                     wapi => {pem_file, get_keysource("keys/local/private.pem", Config)}
                 }
             }
         }},
         {lechiffre_opts,  #{
-            encryption_key_path => {KeySource, KeyPassword},
-            decryption_key_paths => [{KeySource, KeyPassword}]
+            encryption_key_path => JwkPath,
+            decryption_key_paths => [JwkPath]
         }}
     ],
     start_app(wapi, WapiEnv).
