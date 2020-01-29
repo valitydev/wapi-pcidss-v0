@@ -122,34 +122,37 @@ construct_bank_card(BankCard, CardData) ->
     CardNumber = genlib:to_binary(genlib_map:get(<<"cardNumber">>, CardData)),
     Bin = BankCard#cds_BankCard.bin,
     LastDigits = BankCard#cds_BankCard.last_digits,
-    MaskedPan = wapi_utils:decode_masked_pan(byte_size(CardNumber), Bin, LastDigits),
     genlib_map:compact(#{
         token => BankCard#cds_BankCard.token,
         pan_length => byte_size(CardNumber),
         bin => Bin,
         last_digits => LastDigits,
-        masked_pan => MaskedPan,
         exp_date => ExpDate,
         cardholder_name => genlib_map:get(<<"cardHolder">>, CardData)
     }).
 
 to_thrift(card_data, Data) ->
-    {Month, Year} = parse_exp_date(genlib_map:get(<<"expDate">>, Data)),
+    ExpDate = case parse_exp_date(genlib_map:get(<<"expDate">>, Data)) of
+        {Month, Year} ->
+            #cds_ExpDate{
+                month = Month,
+                year = Year
+            };
+        undefined ->
+            undefined
+    end,
     CardNumber = genlib:to_binary(genlib_map:get(<<"cardNumber">>, Data)),
     #cds_PutCardData{
         pan  = CardNumber,
-        exp_date = #cds_ExpDate{
-            month = Month,
-            year = Year
-        },
-        cardholder_name = genlib_map:get(<<"cardHolder">>, Data, undefined)
+        exp_date = ExpDate,
+        cardholder_name = genlib_map:get(<<"cardHolder">>, Data)
     };
 to_thrift(bank_card, BankCard) ->
     ExpDate = genlib_map:get(exp_date, BankCard),
     #'BankCard'{
         token = maps:get(token, BankCard),
         bin = maps:get(bin, BankCard),
-        masked_pan = maps:get(masked_pan, BankCard),
+        masked_pan = maps:get(last_digits, BankCard),
         exp_date = to_thrift(exp_date, ExpDate),
         cardholder_name = genlib_map:get(cardholder_name, BankCard)
     };
