@@ -1,4 +1,27 @@
 -define(STRING, <<"TEST">>).
+-define(INTEGER, 10000).
+-define(TIMESTAMP, <<"2016-03-22T06:12:27Z">>).
+
+-define(BANK_CARD, ?BANK_CARD(?PAN)).
+
+-define(BANK_CARD(CardNumber), #cds_BankCard{
+    token = ?STRING,
+    last_digits = ?LAST_DIGITS(CardNumber),
+    bin = ?BIN(CardNumber)
+}).
+
+-define(BINBASE_LOOKUP_RESULT, ?BINBASE_LOOKUP_RESULT(<<"MASTERCARD">>)).
+-define(BINBASE_LOOKUP_RESULT(PaymentSystem), #'binbase_ResponseData'{
+    bin_data = #'binbase_BinData' {
+        payment_system = PaymentSystem,
+        bank_name = ?STRING,
+        iso_country_code = <<"KAZ">>,
+        card_type = debit,
+        bin_data_id = {i, 123}
+    },
+    version = ?INTEGER
+}).
+
 -define(PAN, <<"4242424242424242">>).
 -define(CVV, 123).
 -define(EXP_DATE, <<"01/21">>).
@@ -9,15 +32,6 @@
 -define(LAST_DIGITS(CardNumber), string:slice(CardNumber, 12)).
 
 -define(MASKED_PAN(CardNumber), <<(?BIN(CardNumber))/binary, <<"******">>/binary, (?LAST_DIGITS(CardNumber))/binary>>).
-
-
--define(BANK_CARD, ?BANK_CARD(?PAN)).
-
--define(BANK_CARD(CardNumber), #cds_BankCard{
-    token = ?STRING,
-    last_digits = ?LAST_DIGITS(CardNumber),
-    bin = ?BIN(CardNumber)
-}).
 
 -define(PUT_CARD_RESULT, ?PUT_CARD_RESULT(?PAN)).
 

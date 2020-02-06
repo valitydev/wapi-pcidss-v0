@@ -67,7 +67,8 @@ decrypt_token(Token) ->
             #{
                 <<"token">> => Token,
                 <<"bin">> => Bin,
-                <<"lastDigits">> => LastDigits
+                <<"lastDigits">> => LastDigits,
+                <<"paymentSystem">> => genlib:to_binary(BankCard#'BankCard'.payment_system)
             };
         {error, {decryption_failed, _} = Error} ->
             logger:warning("Bank card token decryption failed: ~p", [Error]),
@@ -86,9 +87,9 @@ decode_legacy_token(Token) ->
 process_card_data(CardData, CVV, Context) ->
     CardDataThrift = to_thrift(card_data, CardData),
     SessionThrift  = to_thrift(session_data, CVV),
-    BankCardCDS = put_card_to_cds(CardDataThrift, Context),
+    {BankCardCDS, BankInfo} = put_card_to_cds(CardDataThrift, Context),
     SessionID   = put_session_to_cds(SessionThrift, Context),
-    BankCard = construct_bank_card(BankCardCDS, CardData),
+    BankCard = construct_bank_card(BankCardCDS, CardData, BankInfo),
     case CVV of
         V when is_binary(V) ->
             {BankCard, SessionID};
@@ -96,28 +97,35 @@ process_card_data(CardData, CVV, Context) ->
             {BankCard, undefined}
     end.
 
-put_card_to_cds(CardData, Context) ->
-    Call = {cds_storage, 'PutCard', [CardData]},
-    case service_call(Call, Context) of
-        {ok, #cds_PutCardResult{bank_card = BankCard}} ->
-            BankCard;
-        {exception, #cds_InvalidCardData{}} ->
+put_card_to_cds(CardData, #{woody_context := WoodyContext}) ->
+    case wapi_bankcard:lookup_bank_info(CardData#cds_PutCardData.pan, WoodyContext) of
+        {ok, BankInfo} ->
+            Call = {cds_storage, 'PutCard', [CardData]},
+            case service_call(Call, WoodyContext) of
+                {ok, #cds_PutCardResult{bank_card = BankCard}} ->
+                    {BankCard, BankInfo};
+                {exception, #cds_InvalidCardData{}} ->
+                    wapi_handler:throw_result(wapi_handler_utils:reply_ok(422,
+                        wapi_handler_utils:get_error_msg(<<"Card data is invalid">>)
+                    ))
+            end;
+        {error, _Reason} ->
             wapi_handler:throw_result(wapi_handler_utils:reply_ok(422,
-                wapi_handler_utils:get_error_msg(<<"Card data is invalid">>)
+                wapi_handler_utils:get_error_msg(<<"Unsupported card">>)
             ))
     end.
 
-put_session_to_cds(SessionData, Context) ->
+put_session_to_cds(SessionData, #{woody_context := WoodyContext}) ->
     SessionID = make_random_id(),
     Call = {cds_storage, 'PutSession', [SessionID, SessionData]},
-    {ok, ok} = service_call(Call, Context),
+    {ok, ok} = service_call(Call, WoodyContext),
     SessionID.
 
 make_random_id() ->
     Random = crypto:strong_rand_bytes(16),
     genlib_format:format_int_base(binary:decode_unsigned(Random), 62).
 
-construct_bank_card(BankCard, CardData) ->
+construct_bank_card(BankCard, CardData, BankInfo) ->
     ExpDate = parse_exp_date(genlib_map:get(<<"expDate">>, CardData)),
     CardNumber = genlib:to_binary(genlib_map:get(<<"cardNumber">>, CardData)),
     Bin = BankCard#cds_BankCard.bin,
@@ -127,6 +135,7 @@ construct_bank_card(BankCard, CardData) ->
         pan_length => byte_size(CardNumber),
         bin => Bin,
         last_digits => LastDigits,
+        payment_system => maps:get(payment_system, BankInfo),
         exp_date => ExpDate,
         cardholder_name => genlib_map:get(<<"cardHolder">>, CardData)
     }).
@@ -153,9 +162,11 @@ to_thrift(bank_card, BankCard) ->
         token = maps:get(token, BankCard),
         bin = maps:get(bin, BankCard),
         masked_pan = maps:get(last_digits, BankCard),
+        payment_system = maps:get(payment_system, BankCard),
         exp_date = to_thrift(exp_date, ExpDate),
         cardholder_name = genlib_map:get(cardholder_name, BankCard)
     };
+
 to_thrift(exp_date, undefined) ->
     undefined;
 to_thrift(exp_date, {Month, Year}) ->
@@ -166,17 +177,21 @@ to_thrift(exp_date, {Month, Year}) ->
 to_thrift(session_data, CVV) when is_binary(CVV) ->
     #cds_SessionData{ auth_data = {card_security_code, #cds_CardSecurityCode{ value = CVV }}};
 to_thrift(session_data, undefined) ->
-    #cds_SessionData{ auth_data = {card_security_code, #cds_CardSecurityCode{ value = <<>> }}}.
+    #'cds_SessionData'{
+        auth_data = {card_security_code, #'cds_CardSecurityCode'{value = <<>>}}
+    }.
 
 decode_bank_card(BankCard, AuthData) ->
     #{
         bin := Bin,
-        last_digits := LastDigits
+        last_digits := LastDigits,
+        payment_system := PaymentSystem
     } = BankCard,
     EncryptedToken = wapi_crypto:encrypt_bankcard_token(to_thrift(bank_card, BankCard)),
     genlib_map:compact(#{
         <<"token">>          => EncryptedToken,
         <<"bin">>            => Bin,
+        <<"paymentSystem">>  => genlib:to_binary(PaymentSystem),
         <<"lastDigits">>     => LastDigits,
         <<"authData">>       => decode_auth_data(AuthData)
     }).
@@ -198,5 +213,5 @@ parse_exp_date(ExpDate) when is_binary(ExpDate) ->
     end,
     {genlib:to_int(Month), Year}.
 
-service_call({ServiceName, Function, Args}, #{woody_context := WoodyContext}) ->
+service_call({ServiceName, Function, Args}, WoodyContext) ->
     wapi_woody_client:call_service(ServiceName, Function, Args, WoodyContext).

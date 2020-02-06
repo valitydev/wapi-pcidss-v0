@@ -86,7 +86,6 @@ start_app(AppName) ->
 start_app(AppName, Env) ->
     genlib_app:start_application_with(AppName, Env).
 
-
 -spec start_wapi(config()) ->
     [app_name()].
 start_wapi(Config) ->

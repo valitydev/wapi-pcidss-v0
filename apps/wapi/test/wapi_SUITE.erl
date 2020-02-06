@@ -4,6 +4,7 @@
 
 -include_lib("fistful_proto/include/ff_proto_base_thrift.hrl").
 -include_lib("cds_proto/include/cds_proto_storage_thrift.hrl").
+-include_lib("binbase_proto/include/binbase_binbase_thrift.hrl").
 -include_lib("stdlib/include/assert.hrl").
 -include_lib("wapi_dummy_data.hrl").
 
@@ -23,6 +24,7 @@
 -export([store_bank_card_success_test/1]).
 -export([get_bank_card_success_test  /1]).
 -export([store_privdoc_success_test  /1]).
+-export([store_pan_only_bank_card_ok_test/1]).
 
 -type config()         :: ct_helper:config().
 -type test_case_name() :: ct_helper:test_case_name().
@@ -40,6 +42,7 @@ groups() ->
     [
         {default, [
             store_bank_card_success_test,
+            store_pan_only_bank_card_ok_test,
             get_bank_card_success_test,
             store_privdoc_success_test
         ]}
@@ -91,15 +94,41 @@ end_per_testcase(_Name, C) ->
 
 store_bank_card_success_test(C) ->
     CardNumber = <<"4150399999000900">>,
-    wapi_ct_helper:mock_services([{cds_storage, fun
-        ('PutCard',    _) -> {ok, ?PUT_CARD_RESULT(CardNumber)};
-        ('PutSession', _) -> {ok, ?PUT_SESSION_RESULT}
-    end}], C),
+    wapi_ct_helper:mock_services([
+        {binbase, fun('Lookup', _) ->
+                {ok, ?BINBASE_LOOKUP_RESULT(<<"VISA">>)}
+        end},
+        {cds_storage, fun
+            ('PutCard',    _) -> {ok, ?PUT_CARD_RESULT(CardNumber)};
+            ('PutSession', _Args) -> {ok, ?PUT_SESSION_RESULT}
+        end}
+    ], C),
     Bin        = ?BIN(CardNumber),
     LastDigits = ?LAST_DIGITS(CardNumber),
     {ok, #{
         <<"bin">>        := Bin,
-        <<"lastDigits">> := LastDigits
+        <<"lastDigits">> := LastDigits,
+        <<"paymentSystem">> := <<"visa">>
+    }} = wapi_client_payres:store_bank_card(?config(context, C), ?STORE_BANK_CARD_REQUEST(CardNumber)).
+
+-spec store_pan_only_bank_card_ok_test(config()) ->
+    test_return().
+
+store_pan_only_bank_card_ok_test(C) ->
+    CardNumber = <<"4150399999000900">>,
+    wapi_ct_helper:mock_services([
+        {binbase, fun('Lookup', _) ->
+            {ok, ?BINBASE_LOOKUP_RESULT(<<"VISA">>)}
+        end},
+        {cds_storage, fun
+            ('PutCard',    _)     -> {ok, ?PUT_CARD_RESULT(CardNumber)};
+            ('PutSession', _Args) -> {ok, ?PUT_SESSION_RESULT}
+        end}
+    ], C),
+    {ok, #{
+            <<"bin">> := <<"415039">>,
+            <<"lastDigits">> := <<"0900">>,
+            <<"paymentSystem">> := <<"visa">>
     }} = wapi_client_payres:store_bank_card(?config(context, C), ?STORE_BANK_CARD_REQUEST(CardNumber)).
 
 -spec get_bank_card_success_test(config()) -> test_return().
@@ -109,6 +138,9 @@ get_bank_card_success_test(C) ->
     wapi_ct_helper:mock_services([{cds_storage, fun
         ('PutCard',     _) -> {ok, ?PUT_CARD_RESULT(CardNumber)};
         ('PutSession',  _) -> {ok, ?PUT_SESSION_RESULT}
+    end},
+    {binbase, fun
+        ('Lookup', _) -> {ok, ?BINBASE_LOOKUP_RESULT(<<"VISA">>)}
     end}], C),
     {ok, #{
         <<"token">> := Token
@@ -116,9 +148,10 @@ get_bank_card_success_test(C) ->
     Bin        = ?BIN(CardNumber),
     LastDigits = ?LAST_DIGITS(CardNumber),
     {ok, #{
-        <<"bin">>        := Bin,
-        <<"lastDigits">> := LastDigits,
-        <<"token">>      := Token
+        <<"bin">>           := Bin,
+        <<"lastDigits">>    := LastDigits,
+        <<"token">>         := Token,
+        <<"paymentSystem">> := <<"visa">>
     }} = wapi_client_payres:get_bank_card(?config(context, C), Token).
 
 -spec store_privdoc_success_test(config()) -> test_return().

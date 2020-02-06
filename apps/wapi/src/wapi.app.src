@@ -26,6 +26,8 @@
         woody_user_identity,
         erl_health,
         identdocstore_proto,
+        dmsl,
+        binbase_proto,
         uac
     ]},
     {env, []}
