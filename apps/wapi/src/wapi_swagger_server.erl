@@ -58,8 +58,14 @@ squash_routes(Routes) ->
         Routes
     )).
 
-mk_operation_id_getter(#{env := Env}) ->
-    fun (Req) ->
+%% Ensure that environment contains routes to prevent
+%% possible crashes in runtime.
+mk_operation_id_getter(#{env := Env = #{dispatch := _}}) ->
+    %% Ensure that request has host and path required for
+    %% cowboy_router:execute/2.
+    %% NOTE: Be careful when upgrade cowboy in this project
+    %% because cowboy_router:execute/2 call can change.
+    fun (Req=#{host := _Host, path := _Path}) ->
         case cowboy_router:execute(Req, Env) of
             {ok, _, #{handler_opts := {_Operations, _LogicHandler, _SwaggerHandlerOpts} = HandlerOpts}} ->
                 case swag_server_payres_utils:get_operation_id(Req, HandlerOpts) of
@@ -70,5 +76,13 @@ mk_operation_id_getter(#{env := Env}) ->
                 end;
             _ ->
                 #{}
-        end
+        end;
+        (_Req) ->
+            logger:warning("Partial request detected (no host or path in request), skip getting operation_id"),
+            #{}
+    end;
+mk_operation_id_getter(_) ->
+    logger:warning("No dispatch info found in cowboy's environment, getting operation_id disabled"),
+    fun (_Req) ->
+        #{}
     end.
