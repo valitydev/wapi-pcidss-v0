@@ -98,7 +98,7 @@ process_card_data(CardData, CVV, Context) ->
     end.
 
 put_card_to_cds(CardData, #{woody_context := WoodyContext}) ->
-    case wapi_bankcard:lookup_bank_info(CardData#cds_PutCardData.pan, WoodyContext) of
+    case wapi_bankcard:lookup_bank_info(CardData#cds_CardData.pan, WoodyContext) of
         {ok, BankInfo} ->
             Call = {cds_storage, 'PutCard', [CardData]},
             case service_call(Call, WoodyContext) of
@@ -141,20 +141,9 @@ construct_bank_card(BankCard, CardData, BankInfo) ->
     }).
 
 to_thrift(card_data, Data) ->
-    ExpDate = case parse_exp_date(genlib_map:get(<<"expDate">>, Data)) of
-        {Month, Year} ->
-            #cds_ExpDate{
-                month = Month,
-                year = Year
-            };
-        undefined ->
-            undefined
-    end,
     CardNumber = genlib:to_binary(genlib_map:get(<<"cardNumber">>, Data)),
-    #cds_PutCardData{
-        pan  = CardNumber,
-        exp_date = ExpDate,
-        cardholder_name = genlib_map:get(<<"cardHolder">>, Data)
+    #cds_CardData{
+        pan  = CardNumber
     };
 to_thrift(bank_card, BankCard) ->
     ExpDate = genlib_map:get(exp_date, BankCard),
