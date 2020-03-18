@@ -22,6 +22,7 @@
 -behaviour(supervisor).
 
 -export([store_bank_card_success_test/1]).
+-export([store_bank_card_invalid_cardholder_test/1]).
 -export([get_bank_card_success_test  /1]).
 -export([store_privdoc_success_test  /1]).
 -export([store_pan_only_bank_card_ok_test/1]).
@@ -42,6 +43,7 @@ groups() ->
     [
         {default, [
             store_bank_card_success_test,
+            store_bank_card_invalid_cardholder_test,
             store_pan_only_bank_card_ok_test,
             get_bank_card_success_test,
             store_privdoc_success_test
@@ -110,6 +112,34 @@ store_bank_card_success_test(C) ->
         <<"lastDigits">> := LastDigits,
         <<"paymentSystem">> := <<"visa">>
     }} = wapi_client_payres:store_bank_card(?config(context, C), ?STORE_BANK_CARD_REQUEST(CardNumber)).
+
+-spec store_bank_card_invalid_cardholder_test(config()) -> test_return().
+
+store_bank_card_invalid_cardholder_test(C) ->
+    wapi_ct_helper:mock_services([
+        {binbase, fun('Lookup', _) ->
+                {ok, ?BINBASE_LOOKUP_RESULT(<<"VISA">>)}
+        end},
+        {cds_storage, fun
+            ('PutCard',    _) -> {ok, ?PUT_CARD_RESULT(<<"4150399999000900">>)};
+            ('PutSession', _Args) -> {ok, ?PUT_SESSION_RESULT}
+        end}
+    ], C),
+    BankCard = #{
+        <<"type">>       => <<"BankCard">>,
+        <<"cardNumber">> => <<"4150399999000900">>,
+        <<"expDate">>    => ?EXP_DATE,
+        <<"cardHolder">> => ?STRING
+    },
+    {ok, _} = wapi_client_payres:store_bank_card(?config(context, C),
+        BankCard#{<<"cardHolder">> => <<"ЛЕХА СВОТИН"/utf8>>}
+    ),
+    {error, {request_validation_failed, _}} = wapi_client_payres:store_bank_card(?config(context, C),
+        BankCard#{<<"cardHolder">> => <<"4150399999000900">>}
+    ),
+    {error, {request_validation_failed, _}} = wapi_client_payres:store_bank_card(?config(context, C),
+        BankCard#{<<"cardHolder">> => <<"ЛЕХА 123"/utf8>>}
+    ).
 
 -spec store_pan_only_bank_card_ok_test(config()) ->
     test_return().
