@@ -84,10 +84,13 @@ decode_legacy_token(Token) ->
             erlang:error(badarg)
     end.
 
-process_card_data(CardData, CVV, Context) ->
-    CardDataThrift = to_thrift(card_data, CardData),
+process_card_data(CardData, CVV, #{woody_context := WoodyContext} = Context) ->
+    {CardDataThrift, ExtraCardData} = to_thrift(card_data, CardData),
     SessionThrift  = to_thrift(session_data, CVV),
-    {BankCardCDS, BankInfo} = put_card_to_cds(CardDataThrift, Context),
+    {ok, BankInfo} = lookup_bank_info(CardDataThrift#cds_PutCardData.pan, WoodyContext),
+    PaymentSystem = wapi_bankcard:payment_system(BankInfo),
+    ok = validate_card_data(CardDataThrift, ExtraCardData, SessionThrift, PaymentSystem),
+    {BankCardCDS, BankInfo} = put_card_to_cds(CardDataThrift, BankInfo, Context),
     SessionID   = put_session_to_cds(SessionThrift, Context),
     BankCard = construct_bank_card(BankCardCDS, CardData, BankInfo),
     case CVV of
@@ -97,21 +100,34 @@ process_card_data(CardData, CVV, Context) ->
             {BankCard, undefined}
     end.
 
-put_card_to_cds(CardData, #{woody_context := WoodyContext}) ->
-    case wapi_bankcard:lookup_bank_info(CardData#cds_CardData.pan, WoodyContext) of
+put_card_to_cds(CardData, BankInfo, #{woody_context := WoodyContext}) ->
+    Call = {cds_storage, 'PutCard', [CardData]},
+    case service_call(Call, WoodyContext) of
+        {ok, #cds_PutCardResult{bank_card = BankCard}} ->
+            {BankCard, BankInfo};
+        {exception, #cds_InvalidCardData{}} ->
+            wapi_handler:throw_result(wapi_handler_utils:reply_ok(422,
+                wapi_handler_utils:get_error_msg(<<"Card data is invalid">>)
+            ))
+    end.
+
+lookup_bank_info(Pan, WoodyContext) ->
+    case wapi_bankcard:lookup_bank_info(Pan, WoodyContext) of
         {ok, BankInfo} ->
-            Call = {cds_storage, 'PutCard', [CardData]},
-            case service_call(Call, WoodyContext) of
-                {ok, #cds_PutCardResult{bank_card = BankCard}} ->
-                    {BankCard, BankInfo};
-                {exception, #cds_InvalidCardData{}} ->
-                    wapi_handler:throw_result(wapi_handler_utils:reply_ok(422,
-                        wapi_handler_utils:get_error_msg(<<"Card data is invalid">>)
-                    ))
-            end;
+            {ok, BankInfo};
         {error, _Reason} ->
             wapi_handler:throw_result(wapi_handler_utils:reply_ok(422,
                 wapi_handler_utils:get_error_msg(<<"Unsupported card">>)
+            ))
+    end.
+
+validate_card_data(CardData, ExtraCardData, SessionData, PaymentSystem) ->
+    case wapi_bankcard:validate(CardData, ExtraCardData, SessionData, PaymentSystem) of
+        ok ->
+            ok;
+        {error, _Error} ->
+            wapi_handler:throw_result(wapi_handler_utils:reply_ok(422,
+                wapi_handler_utils:get_error_msg(<<"Card data is invalid">>)
             ))
     end.
 
@@ -141,20 +157,17 @@ construct_bank_card(BankCard, CardData, BankInfo) ->
     }).
 
 to_thrift(card_data, Data) ->
-    ExpDate = case parse_exp_date(genlib_map:get(<<"expDate">>, Data)) of
-                  {Month, Year} ->
-                      #cds_ExpDate{
-                          month = Month,
-                          year = Year
-                      };
-                  undefined ->
-                      undefined
-              end,
     CardNumber = genlib:to_binary(genlib_map:get(<<"cardNumber">>, Data)),
-    #cds_CardData{
-        pan  = CardNumber,
-        exp_date = ExpDate,
-        cardholder_name = genlib_map:get(<<"cardHolder">>, Data)
+    ExpDate = parse_exp_date(genlib_map:get(<<"expDate">>, Data)),
+    Cardholder = genlib_map:get(<<"cardHolder">>, Data),
+    {
+        #cds_PutCardData{
+            pan = CardNumber
+        },
+        genlib_map:compact(#{
+            cardholder => Cardholder,
+            exp_date => ExpDate
+        })
     };
 to_thrift(bank_card, BankCard) ->
     ExpDate = genlib_map:get(exp_date, BankCard),
