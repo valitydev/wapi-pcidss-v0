@@ -110,6 +110,9 @@ start_wapi(Config, ExtraEnv) ->
         {lechiffre_opts,  #{
             encryption_key_path => JwkPath,
             decryption_key_paths => [JwkPath]
+        }},
+        {validation, #{
+            env => #{now => {{2020, 02, 02}, {0, 0, 0}}}
         }}
     ],
     start_app(wapi, WapiEnv).

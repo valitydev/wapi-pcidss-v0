@@ -22,6 +22,7 @@
 -behaviour(supervisor).
 
 -export([store_bank_card_success_test/1]).
+-export([store_bank_card_expired_test/1]).
 -export([store_bank_card_invalid_cardholder_test/1]).
 -export([get_bank_card_success_test  /1]).
 -export([store_privdoc_success_test  /1]).
@@ -43,6 +44,7 @@ groups() ->
     [
         {default, [
             store_bank_card_success_test,
+            store_bank_card_expired_test,
             store_bank_card_invalid_cardholder_test,
             store_pan_only_bank_card_ok_test,
             get_bank_card_success_test,
@@ -112,6 +114,28 @@ store_bank_card_success_test(C) ->
         <<"lastDigits">> := LastDigits,
         <<"paymentSystem">> := <<"visa">>
     }} = wapi_client_payres:store_bank_card(?config(context, C), ?STORE_BANK_CARD_REQUEST(CardNumber)).
+
+-spec store_bank_card_expired_test(config()) -> test_return().
+
+store_bank_card_expired_test(C) ->
+    Ctx = ?config(context, C),
+    _ = wapi_ct_helper:mock_services([
+        {binbase, fun('Lookup', _) ->
+            {ok, ?BINBASE_LOOKUP_RESULT(<<"VISA">>)}
+        end},
+        {cds_storage, fun
+            ('PutCard',    _) -> {ok, ?PUT_CARD_RESULT(?PAN)};
+            ('PutSession', _Args) -> {ok, ?PUT_SESSION_RESULT}
+        end}
+    ], C),
+    _ = ?assertMatch(
+        {ok, #{}},
+        wapi_client_payres:store_bank_card(Ctx, ?STORE_BANK_CARD_REQUEST(?PAN, ?EXP_DATE_NEARLY_EXPIRED))
+    ),
+    _ = ?assertMatch(
+        {error, {422, #{}}},
+        wapi_client_payres:store_bank_card(Ctx, ?STORE_BANK_CARD_REQUEST(?PAN, ?EXP_DATE_EXPIRED))
+    ).
 
 -spec store_bank_card_invalid_cardholder_test(config()) -> test_return().
 
