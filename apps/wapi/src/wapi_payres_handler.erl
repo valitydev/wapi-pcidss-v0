@@ -122,7 +122,8 @@ lookup_bank_info(Pan, WoodyContext) ->
     end.
 
 validate_card_data(CardData, ExtraCardData, SessionData, PaymentSystem) ->
-    case wapi_bankcard:validate(CardData, ExtraCardData, SessionData, PaymentSystem) of
+    ValidationEnv = maps:get(env, genlib_app:env(wapi, validation, #{}), #{}),
+    case wapi_bankcard:validate(CardData, ExtraCardData, SessionData, PaymentSystem, ValidationEnv) of
         ok ->
             ok;
         {error, _Error} ->

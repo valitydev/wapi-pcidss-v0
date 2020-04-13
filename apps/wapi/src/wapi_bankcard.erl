@@ -5,7 +5,7 @@
 -include_lib("cds_proto/include/cds_proto_storage_thrift.hrl").
 
 -export([lookup_bank_info/2]).
--export([validate/4]).
+-export([validate/5]).
 -export([payment_system/1]).
 
 -type bank_info() :: #{
@@ -25,7 +25,7 @@
 -type card_data() :: cds_proto_storage_thrift:'PutCardData'().
 -type extra_card_data() :: #{
     cardholder => binary() | undefined,
-    exp_data => {integer(), integer()}
+    exp_date => {integer(), integer()}
 }.
 -type session_data() :: cds_proto_storage_thrift:'SessionData'().
 -type payment_system() :: dmsl_domain_thrift:'BankCardPaymentSystem'().
@@ -153,13 +153,23 @@ decode_issuer_country(undefined) ->
 payment_system(BankInfo) ->
     maps:get(payment_system, BankInfo).
 
--spec validate(card_data(), extra_card_data(), session_data() | undefined, payment_system()) ->
+-type validation_env() :: #{
+    now => calendar:datetime() % current time in UTC by default
+}.
+
+-spec validate(
+    card_data(),
+    extra_card_data(),
+    session_data() | undefined,
+    payment_system(),
+    validation_env()
+) ->
     ok | {error, reason()}.
 
-validate(CardData, ExtraCardData, SessionData, PaymentSystem) ->
+validate(CardData, ExtraCardData, SessionData, PaymentSystem, Env) ->
     Rulesets = get_payment_system_assertions(),
     Assertions = maps:get(PaymentSystem, Rulesets, []),
-    validate_card_data(merge_data(CardData, ExtraCardData, SessionData), Assertions).
+    validate_card_data(merge_data(CardData, ExtraCardData, SessionData), Assertions, Env).
 
 merge_data(CardData, ExtraCardData, undefined) ->
     maps:merge(convert_card_data(CardData), ExtraCardData);
@@ -176,14 +186,14 @@ get_cvv_from_session_data(_) ->
 
 %%
 
-validate_card_data(CardData, Assertions) ->
-    try run_assertions(CardData, Assertions) catch
+validate_card_data(CardData, Assertions, Env) ->
+    DefaultEnv = #{now => calendar:universal_time()},
+    try run_assertions(CardData, Assertions, maps:merge(DefaultEnv, Env)) catch
         Reason ->
             {error, Reason}
     end.
 
-run_assertions(CardData, Assertions) ->
-    Env = #{now => calendar:universal_time()},
+run_assertions(CardData, Assertions, Env) ->
     genlib_map:foreach(
         fun(K, Checks) ->
             V = maps:get(K, CardData, undefined),

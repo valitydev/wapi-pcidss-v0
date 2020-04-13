@@ -25,6 +25,8 @@
 -define(PAN, <<"4242424242424242">>).
 -define(CVV, 123).
 -define(EXP_DATE, <<"01/21">>).
+-define(EXP_DATE_NEARLY_EXPIRED, <<"02/20">>).
+-define(EXP_DATE_EXPIRED, <<"01/20">>).
 -define(DATE, <<"2016-03-22">>).
 
 -define(BIN(CardNumber), string:slice(CardNumber, 0, 6)).
@@ -43,10 +45,14 @@
 
 -define(STORE_BANK_CARD_REQUEST, ?STORE_BANK_CARD_REQUEST(?PAN)).
 
--define(STORE_BANK_CARD_REQUEST(CardNumber), #{
+-define(STORE_BANK_CARD_REQUEST(CardNumber),
+    ?STORE_BANK_CARD_REQUEST(CardNumber, ?EXP_DATE)
+).
+
+-define(STORE_BANK_CARD_REQUEST(CardNumber, ExpDate), #{
     <<"type">>       => <<"BankCard">>,
     <<"cardNumber">> => CardNumber,
-    <<"expDate">>    => ?EXP_DATE,
+    <<"expDate">>    => ExpDate,
     <<"cardHolder">> => ?STRING
 }).
 
