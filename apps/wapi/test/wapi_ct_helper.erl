@@ -154,15 +154,17 @@ issue_token(ACL, LifeTime) ->
     }.
 
 issue_token(PartyID, ACL, LifeTime) ->
-    Claims = #{?STRING => ?STRING},
     DomainRoles = #{
         <<"common-api">> => uac_acl:from_list(ACL)
     },
+    Claims = #{
+        ?STRING => ?STRING,
+        <<"exp">> => LifeTime,
+        <<"resource_access">> => DomainRoles
+    },
     uac_authorizer_jwt:issue(
         wapi_utils:get_unique_id(),
-        LifeTime,
         PartyID,
-        DomainRoles,
         Claims,
         wapi
     ).
