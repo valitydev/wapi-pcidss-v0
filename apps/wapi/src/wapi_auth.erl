@@ -11,6 +11,7 @@
 -export([get_operation_access/2]).
 
 -define(DEFAULT_ACCESS_TOKEN_LIFETIME, 259200).
+-define(DOMAIN, <<"common-api">>).
 
 -define(SIGNEE, wapi).
 
@@ -36,7 +37,7 @@
     {true, context()}. %% | false.
 
 authorize_api_key(OperationID, ApiKey, _Opts) ->
-    case uac:authorize_api_key(ApiKey, #{}) of
+    case uac:authorize_api_key(ApiKey, get_verification_options()) of
         {ok, Context} ->
             {true, Context};
         {error, Error} ->
@@ -120,6 +121,11 @@ get_consumer(Claims) ->
 
 get_access_config() ->
     #{
-        domain_name => <<"common-api">>,
+        domain_name => ?DOMAIN,
         resource_hierarchy => get_resource_hierarchy()
+    }.
+
+get_verification_options() ->
+    #{
+        domains_to_decode => [?DOMAIN]
     }.
