@@ -181,8 +181,6 @@ get_context(Token) ->
 get_context(Token, ExtraProperties) ->
     wapi_client_lib:get_context(?WAPI_URL, Token, 10000, ipv4, ExtraProperties).
 
-
-
 -spec mock_services(_, _) ->
     _.
 
