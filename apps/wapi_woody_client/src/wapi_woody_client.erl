@@ -10,17 +10,13 @@
 
 -type service_name() :: atom().
 
--spec call_service(service_name(), woody:func(), [term()], woody_context:ctx()) ->
-    woody:result().
-
+-spec call_service(service_name(), woody:func(), [term()], woody_context:ctx()) -> woody:result().
 call_service(ServiceName, Function, Args, Context) ->
     EventHandlerOpts = genlib_app:env(wapi, scoper_event_handler_options, #{}),
     EventHandler = {scoper_woody_event_handler, EventHandlerOpts},
     call_service(ServiceName, Function, Args, Context, EventHandler).
 
--spec call_service(service_name(), woody:func(), [term()], woody_context:ctx(), woody:ev_handler()) ->
-    woody:result().
-
+-spec call_service(service_name(), woody:func(), [term()], woody_context:ctx(), woody:ev_handler()) -> woody:result().
 call_service(ServiceName, Function, Args, Context, EventHandler) ->
     {Url, Service} = get_service_spec(ServiceName),
     Request = {Service, Function, Args},
@@ -33,7 +29,6 @@ get_service_url(ServiceName) ->
     maps:get(ServiceName, genlib_app:env(?APP, service_urls)).
 
 -spec get_service_modname(service_name()) -> woody:service().
-
 get_service_modname(binbase) ->
     {binbase_binbase_thrift, 'Binbase'};
 get_service_modname(cds_storage) ->

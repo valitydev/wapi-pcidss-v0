@@ -20,8 +20,8 @@
 -export([get_unique_id/0]).
 
 -type binding_value() :: binary().
--type url()           :: binary().
--type path()          :: binary().
+-type url() :: binary().
+-type path() :: binary().
 
 %% API
 
@@ -65,8 +65,7 @@ redact_match([Capture], Message) ->
 %%         MaskChar
 %%     )).
 
--spec mask_and_keep(leading|trailing, non_neg_integer(), char(), binary()) ->
-    binary().
+-spec mask_and_keep(leading | trailing, non_neg_integer(), char(), binary()) -> binary().
 mask_and_keep(trailing, KeepLen, MaskChar, Chardata) ->
     StrLen = erlang:length(unicode:characters_to_list(Chardata)),
     mask(leading, StrLen - KeepLen, MaskChar, Chardata);
@@ -74,8 +73,7 @@ mask_and_keep(leading, KeepLen, MaskChar, Chardata) ->
     StrLen = erlang:length(unicode:characters_to_list(Chardata)),
     mask(trailing, StrLen - KeepLen, MaskChar, Chardata).
 
--spec mask(leading|trailing, non_neg_integer(), char(), binary()) ->
-    binary().
+-spec mask(leading | trailing, non_neg_integer(), char(), binary()) -> binary().
 mask(trailing, MaskLen, MaskChar, Chardata) ->
     Str = unicode:characters_to_list(Chardata),
     unicode:characters_to_binary(
@@ -87,8 +85,7 @@ mask(leading, MaskLen, MaskChar, Chardata) ->
         string:right(string:substr(Str, MaskLen + 1), erlang:length(Str), MaskChar)
     ).
 
--spec unwrap(ok | {ok, Value} | {error, _Error}) ->
-    Value | no_return().
+-spec unwrap(ok | {ok, Value} | {error, _Error}) -> Value | no_return().
 unwrap(ok) ->
     ok;
 unwrap({ok, Value}) ->
@@ -102,57 +99,50 @@ define(undefined, V) ->
 define(V, _Default) ->
     V.
 
--spec get_path(wapi_handler_utils:route_match(), [binding_value()]) ->
-    path().
+-spec get_path(wapi_handler_utils:route_match(), [binding_value()]) -> path().
 get_path(PathSpec, Params) when is_list(PathSpec) ->
     get_path(genlib:to_binary(PathSpec), Params);
 get_path(Path, []) ->
     Path;
 get_path(PathSpec, [Value | Rest]) ->
     [P1, P2] = split(PathSpec),
-    P3       = get_next(P2),
+    P3 = get_next(P2),
     get_path(<<P1/binary, Value/binary, P3/binary>>, Rest).
 
 split(PathSpec) ->
     case binary:split(PathSpec, <<":">>) of
         Res = [_, _] -> Res;
-        [_]          -> erlang:error(param_mismatch)
+        [_] -> erlang:error(param_mismatch)
     end.
 
 get_next(PathSpec) ->
     case binary:split(PathSpec, <<"/">>) of
         [_, Next] -> <<"/", Next/binary>>;
-        [_]       -> <<>>
+        [_] -> <<>>
     end.
 
--spec get_url(url(), path()) ->
-    url().
+-spec get_url(url(), path()) -> url().
 get_url(BaseUrl, Path) ->
     <<BaseUrl/binary, Path/binary>>.
 
--spec get_url(url(), wapi_handler_utils:route_match(), [binding_value()]) ->
-    url().
+-spec get_url(url(), wapi_handler_utils:route_match(), [binding_value()]) -> url().
 get_url(BaseUrl, PathSpec, Params) ->
     get_url(BaseUrl, get_path(PathSpec, Params)).
 
 -define(MASKED_PAN_MAX_LENGTH, 4).
 
--spec get_last_pan_digits(binary()) ->
-    binary().
+-spec get_last_pan_digits(binary()) -> binary().
 get_last_pan_digits(MaskedPan) when byte_size(MaskedPan) > ?MASKED_PAN_MAX_LENGTH ->
     binary:part(MaskedPan, {byte_size(MaskedPan), -?MASKED_PAN_MAX_LENGTH});
 get_last_pan_digits(MaskedPan) ->
     MaskedPan.
 
--spec decode_masked_pan(pos_integer(), binary(), binary()) ->
-    binary().
-
+-spec decode_masked_pan(pos_integer(), binary(), binary()) -> binary().
 decode_masked_pan(PanLen, Bin, LastDigits) ->
     Mask = binary:copy(<<"*">>, PanLen - byte_size(Bin) - byte_size(LastDigits)),
     <<Bin/binary, Mask/binary, LastDigits/binary>>.
 
 -spec get_unique_id() -> binary().
-
 get_unique_id() ->
     <<ID:64>> = snowflake:new(),
     genlib_format:format_int_base(ID, 62).
@@ -165,22 +155,35 @@ get_unique_id() ->
 -spec test() -> _.
 
 -spec redact_test() -> _.
+
 redact_test() ->
     P1 = <<"^\\+\\d(\\d{1,10}?)\\d{2,4}$">>,
     ?assertEqual(<<"+7******3210">>, redact(<<"+79876543210">>, P1)),
-    ?assertEqual(       <<"+1*11">>, redact(<<"+1111">>, P1)).
+    ?assertEqual(<<"+1*11">>, redact(<<"+1111">>, P1)).
 
 -spec get_path_test() -> _.
 get_path_test() ->
-    ?assertEqual(<<"/wallet/v0/deposits/11/events/42">>, get_path(
-        <<"/wallet/v0/deposits/:depositID/events/:eventID">>, [<<"11">>, <<"42">>]
-    )),
-    ?assertEqual(<<"/wallet/v0/deposits/11/events/42">>, get_path(
-        "/wallet/v0/deposits/:depositID/events/:eventID", [<<"11">>, <<"42">>]
-    )),
-    ?assertError(param_mismatch, get_path(
-        "/wallet/v0/deposits/:depositID/events/:eventID", [<<"11">>, <<"42">>, <<"0">>]
-    )).
+    ?assertEqual(
+        <<"/wallet/v0/deposits/11/events/42">>,
+        get_path(
+            <<"/wallet/v0/deposits/:depositID/events/:eventID">>,
+            [<<"11">>, <<"42">>]
+        )
+    ),
+    ?assertEqual(
+        <<"/wallet/v0/deposits/11/events/42">>,
+        get_path(
+            "/wallet/v0/deposits/:depositID/events/:eventID",
+            [<<"11">>, <<"42">>]
+        )
+    ),
+    ?assertError(
+        param_mismatch,
+        get_path(
+            "/wallet/v0/deposits/:depositID/events/:eventID",
+            [<<"11">>, <<"42">>, <<"0">>]
+        )
+    ).
 
 -spec mask_test() -> _.
 mask_test() ->

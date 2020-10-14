@@ -12,7 +12,7 @@
 
 -define(BINBASE_LOOKUP_RESULT, ?BINBASE_LOOKUP_RESULT(<<"MASTERCARD">>)).
 -define(BINBASE_LOOKUP_RESULT(PaymentSystem), #'binbase_ResponseData'{
-    bin_data = #'binbase_BinData' {
+    bin_data = #'binbase_BinData'{
         payment_system = PaymentSystem,
         bank_name = ?STRING,
         iso_country_code = <<"KAZ">>,
@@ -50,21 +50,21 @@
 ).
 
 -define(STORE_BANK_CARD_REQUEST(CardNumber, ExpDate), #{
-    <<"type">>       => <<"BankCard">>,
+    <<"type">> => <<"BankCard">>,
     <<"cardNumber">> => CardNumber,
-    <<"expDate">>    => ExpDate,
+    <<"expDate">> => ExpDate,
     <<"cardHolder">> => ?STRING
 }).
 
 -define(STORE_PRIVATE_DOCUMENT_REQUEST, #{
-        <<"type">> => <<"RUSDomesticPassportData">>,
-        <<"series">> => <<"1234">>,
-        <<"number">> => <<"123456">>,
-        <<"issuer">> => ?STRING,
-        <<"issuerCode">> => <<"123-123">>,
-        <<"issuedAt">> => ?DATE,
-        <<"familyName">> => ?STRING,
-        <<"firstName">> => ?STRING,
-        <<"birthDate">> => ?DATE,
-        <<"birthPlace">> => ?STRING
+    <<"type">> => <<"RUSDomesticPassportData">>,
+    <<"series">> => <<"1234">>,
+    <<"number">> => <<"123456">>,
+    <<"issuer">> => ?STRING,
+    <<"issuerCode">> => <<"123-123">>,
+    <<"issuedAt">> => ?DATE,
+    <<"familyName">> => ?STRING,
+    <<"firstName">> => ?STRING,
+    <<"birthDate">> => ?DATE,
+    <<"birthPlace">> => ?STRING
 }).

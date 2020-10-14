@@ -5,7 +5,6 @@
 -type context() :: wapi_client_lib:context().
 
 -spec store_private_document(context(), map()) -> {ok, #{binary() => _}} | {error, term()}.
-
 store_private_document(Context, Document) ->
     Params = #{body => Document},
     {Url, PreparedParams, Opts} = wapi_client_lib:make_request(Context, Params),
