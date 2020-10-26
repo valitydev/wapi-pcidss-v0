@@ -9,9 +9,9 @@
 -define(RANCH_REF, ?MODULE).
 
 -spec child_spec(cowboy_router:routes(), #{atom() => module()}) -> supervisor:child_spec().
-child_spec(HealthRoutes, LogicHandlers) ->
+child_spec(AdditionalRoutes, LogicHandlers) ->
     {Transport, TransportOpts} = get_socket_transport(),
-    CowboyOpts = get_cowboy_config(HealthRoutes, LogicHandlers),
+    CowboyOpts = get_cowboy_config(AdditionalRoutes, LogicHandlers),
     GsTimeout = genlib_app:env(?APP, graceful_shutdown_timeout, 5000),
     Protocol = cowboy_clear,
     cowboy_draining_server:child_spec(
@@ -32,11 +32,11 @@ get_socket_transport() ->
         socket_opts => [{ip, IP}, {port, Port}]
     }}.
 
-get_cowboy_config(HealthRoutes, LogicHandlers) ->
+get_cowboy_config(AdditionalRoutes, LogicHandlers) ->
     Dispatch =
         cowboy_router:compile(
             squash_routes(
-                HealthRoutes ++
+                AdditionalRoutes ++
                     %% swag_server_wallet_router:get_paths(maps:get(wallet, LogicHandlers)) ++
                     swag_server_payres_router:get_paths(maps:get(payres, LogicHandlers)) ++
                     swag_server_privdoc_router:get_paths(maps:get(privdoc, LogicHandlers))

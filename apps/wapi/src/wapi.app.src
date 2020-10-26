@@ -28,7 +28,9 @@
         identdocstore_proto,
         dmsl,
         binbase_proto,
-        uac
+        uac,
+        prometheus,
+        prometheus_cowboy
     ]},
     {env, []}
 ]}.
