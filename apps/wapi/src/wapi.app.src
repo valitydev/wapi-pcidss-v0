@@ -26,7 +26,7 @@
         woody_user_identity,
         erl_health,
         identdocstore_proto,
-        dmsl,
+        damsel,
         binbase_proto,
         uac,
         prometheus,
