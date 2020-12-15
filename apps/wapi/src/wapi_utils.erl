@@ -187,24 +187,24 @@ get_path_test() ->
 
 -spec mask_test() -> _.
 mask_test() ->
-    ?assertEqual(<<"Хуй">>, mask(leading, 0, $*, <<"Хуй">>)),
-    ?assertEqual(<<"*уй">>, mask(leading, 1, $*, <<"Хуй">>)),
-    ?assertEqual(<<"**й">>, mask(leading, 2, $*, <<"Хуй">>)),
-    ?assertEqual(<<"***">>, mask(leading, 3, $*, <<"Хуй">>)),
-    ?assertEqual(<<"Хуй">>, mask(trailing, 0, $*, <<"Хуй">>)),
-    ?assertEqual(<<"Ху*">>, mask(trailing, 1, $*, <<"Хуй">>)),
-    ?assertEqual(<<"Х**">>, mask(trailing, 2, $*, <<"Хуй">>)),
-    ?assertEqual(<<"***">>, mask(trailing, 3, $*, <<"Хуй">>)).
+    ?assertEqual(<<"Вий">>, mask(leading, 0, $*, <<"Вий">>)),
+    ?assertEqual(<<"*ий">>, mask(leading, 1, $*, <<"Вий">>)),
+    ?assertEqual(<<"**й">>, mask(leading, 2, $*, <<"Вий">>)),
+    ?assertEqual(<<"***">>, mask(leading, 3, $*, <<"Вий">>)),
+    ?assertEqual(<<"Вий">>, mask(trailing, 0, $*, <<"Вий">>)),
+    ?assertEqual(<<"Ви*">>, mask(trailing, 1, $*, <<"Вий">>)),
+    ?assertEqual(<<"В**">>, mask(trailing, 2, $*, <<"Вий">>)),
+    ?assertEqual(<<"***">>, mask(trailing, 3, $*, <<"Вий">>)).
 
 -spec mask_and_keep_test() -> _.
 mask_and_keep_test() ->
-    ?assertEqual(<<"***">>, mask_and_keep(leading, 0, $*, <<"Хуй">>)),
-    ?assertEqual(<<"Х**">>, mask_and_keep(leading, 1, $*, <<"Хуй">>)),
-    ?assertEqual(<<"Ху*">>, mask_and_keep(leading, 2, $*, <<"Хуй">>)),
-    ?assertEqual(<<"Хуй">>, mask_and_keep(leading, 3, $*, <<"Хуй">>)),
-    ?assertEqual(<<"***">>, mask_and_keep(trailing, 0, $*, <<"Хуй">>)),
-    ?assertEqual(<<"**й">>, mask_and_keep(trailing, 1, $*, <<"Хуй">>)),
-    ?assertEqual(<<"*уй">>, mask_and_keep(trailing, 2, $*, <<"Хуй">>)),
-    ?assertEqual(<<"Хуй">>, mask_and_keep(trailing, 3, $*, <<"Хуй">>)).
+    ?assertEqual(<<"***">>, mask_and_keep(leading, 0, $*, <<"Вий">>)),
+    ?assertEqual(<<"В**">>, mask_and_keep(leading, 1, $*, <<"Вий">>)),
+    ?assertEqual(<<"Ви*">>, mask_and_keep(leading, 2, $*, <<"Вий">>)),
+    ?assertEqual(<<"Вий">>, mask_and_keep(leading, 3, $*, <<"Вий">>)),
+    ?assertEqual(<<"***">>, mask_and_keep(trailing, 0, $*, <<"Вий">>)),
+    ?assertEqual(<<"**й">>, mask_and_keep(trailing, 1, $*, <<"Вий">>)),
+    ?assertEqual(<<"*ий">>, mask_and_keep(trailing, 2, $*, <<"Вий">>)),
+    ?assertEqual(<<"Вий">>, mask_and_keep(trailing, 3, $*, <<"Вий">>)).
 
 -endif.

@@ -87,7 +87,8 @@ start_wapi(Config) ->
 
 -spec start_wapi(config(), list()) -> [app_name()].
 start_wapi(Config, ExtraEnv) ->
-    JwkPath = get_keysource("keys/local/jwk.json", Config),
+    JwkPublSource = {json, {file, get_keysource("keys/local/jwk.publ.json", Config)}},
+    JwkPrivSource = {json, {file, get_keysource("keys/local/jwk.priv.json", Config)}},
     WapiEnv =
         ExtraEnv ++
             [
@@ -103,8 +104,8 @@ start_wapi(Config, ExtraEnv) ->
                     }
                 }},
                 {lechiffre_opts, #{
-                    encryption_key_path => JwkPath,
-                    decryption_key_paths => [JwkPath]
+                    encryption_source => JwkPublSource,
+                    decryption_sources => [JwkPrivSource]
                 }},
                 {validation, #{
                     env => #{now => {{2020, 02, 02}, {0, 0, 0}}}
