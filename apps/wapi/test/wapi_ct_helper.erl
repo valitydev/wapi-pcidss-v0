@@ -109,7 +109,8 @@ start_wapi(Config, ExtraEnv) ->
                 }},
                 {validation, #{
                     env => #{now => {{2020, 02, 02}, {0, 0, 0}}}
-                }}
+                }},
+                {payment_tool_token_lifetime, <<"1024s">>}
             ],
     start_app(wapi, WapiEnv).
 

@@ -27,6 +27,9 @@
 -export([get_bank_card_success_test/1]).
 -export([store_privdoc_success_test/1]).
 -export([store_pan_only_bank_card_ok_test/1]).
+-export([create_resource_test/1]).
+-export([valid_until_resource_test/1]).
+-export([decrypt_resource_v2_test/1]).
 
 -type config() :: ct_helper:config().
 -type test_case_name() :: ct_helper:test_case_name().
@@ -46,7 +49,10 @@ groups() ->
             store_bank_card_invalid_cardholder_test,
             store_pan_only_bank_card_ok_test,
             get_bank_card_success_test,
-            store_privdoc_success_test
+            store_privdoc_success_test,
+            create_resource_test,
+            valid_until_resource_test,
+            decrypt_resource_v2_test
         ]}
     ].
 
@@ -88,25 +94,13 @@ end_per_testcase(_Name, C) ->
 -spec store_bank_card_success_test(config()) -> test_return().
 store_bank_card_success_test(C) ->
     CardNumber = <<"4150399999000900">>,
-    wapi_ct_helper:mock_services(
-        [
-            {binbase, fun('Lookup', _) ->
-                {ok, ?BINBASE_LOOKUP_RESULT(<<"VISA">>)}
-            end},
-            {cds_storage, fun
-                ('PutCard', _) -> {ok, ?PUT_CARD_RESULT(CardNumber)};
-                ('PutSession', _Args) -> {ok, ?PUT_SESSION_RESULT}
-            end}
-        ],
-        C
-    ),
     Bin = ?BIN(CardNumber),
     LastDigits = ?LAST_DIGITS(CardNumber),
     {ok, #{
         <<"bin">> := Bin,
         <<"lastDigits">> := LastDigits,
         <<"paymentSystem">> := <<"visa">>
-    }} = wapi_client_payres:store_bank_card(?config(context, C), ?STORE_BANK_CARD_REQUEST(CardNumber)).
+    }} = call_store_bank_card(CardNumber, C).
 
 -spec store_bank_card_expired_test(config()) -> test_return().
 store_bank_card_expired_test(C) ->
@@ -168,40 +162,18 @@ store_bank_card_invalid_cardholder_test(C) ->
 -spec store_pan_only_bank_card_ok_test(config()) -> test_return().
 store_pan_only_bank_card_ok_test(C) ->
     CardNumber = <<"4150399999000900">>,
-    wapi_ct_helper:mock_services(
-        [
-            {binbase, fun('Lookup', _) ->
-                {ok, ?BINBASE_LOOKUP_RESULT(<<"VISA">>)}
-            end},
-            {cds_storage, fun
-                ('PutCard', _) -> {ok, ?PUT_CARD_RESULT(CardNumber)};
-                ('PutSession', _Args) -> {ok, ?PUT_SESSION_RESULT}
-            end}
-        ],
-        C
-    ),
     {ok, #{
         <<"bin">> := <<"415039">>,
         <<"lastDigits">> := <<"0900">>,
         <<"paymentSystem">> := <<"visa">>
-    }} = wapi_client_payres:store_bank_card(?config(context, C), ?STORE_BANK_CARD_REQUEST(CardNumber)).
+    }} = call_store_bank_card(CardNumber, C).
 
 -spec get_bank_card_success_test(config()) -> test_return().
 get_bank_card_success_test(C) ->
     CardNumber = <<"4150399999000900">>,
-    wapi_ct_helper:mock_services(
-        [
-            {cds_storage, fun
-                ('PutCard', _) -> {ok, ?PUT_CARD_RESULT(CardNumber)};
-                ('PutSession', _) -> {ok, ?PUT_SESSION_RESULT}
-            end},
-            {binbase, fun('Lookup', _) -> {ok, ?BINBASE_LOOKUP_RESULT(<<"VISA">>)} end}
-        ],
-        C
-    ),
     {ok, #{
         <<"token">> := Token
-    }} = wapi_client_payres:store_bank_card(?config(context, C), ?STORE_BANK_CARD_REQUEST(CardNumber)),
+    }} = call_store_bank_card(CardNumber, C),
     Bin = ?BIN(CardNumber),
     LastDigits = ?LAST_DIGITS(CardNumber),
     {ok, #{
@@ -215,3 +187,62 @@ get_bank_card_success_test(C) ->
 store_privdoc_success_test(C) ->
     wapi_ct_helper:mock_services([{identdoc_storage, fun('Put', _) -> {ok, ?STRING} end}], C),
     {ok, _} = wapi_client_privdoc:store_private_document(?config(context, C), ?STORE_PRIVATE_DOCUMENT_REQUEST).
+
+-spec create_resource_test(config()) -> test_return().
+create_resource_test(C) ->
+    CardNumber = <<"4150399999000900">>,
+    {ok, #{
+        <<"token">> := ResourceToken
+    }} = call_store_bank_card(CardNumber, C),
+    {ok, {{bank_card, BankCard}, _ValidUntil}} = wapi_crypto:decrypt_resource_token(ResourceToken),
+    ?assertEqual(?BIN(CardNumber), BankCard#'BankCard'.bin),
+    ?assertEqual(?LAST_DIGITS(CardNumber), BankCard#'BankCard'.masked_pan).
+
+-spec valid_until_resource_test(config()) -> test_return().
+valid_until_resource_test(C) ->
+    CardNumber = <<"4150399999000900">>,
+    {ok, #{
+        <<"token">> := ResourceToken,
+        <<"validUntil">> := ValidUntil
+    }} = call_store_bank_card(CardNumber, C),
+    {ok, {_Resource, DeadlineToken}} = wapi_crypto:decrypt_resource_token(ResourceToken),
+    Deadline = wapi_utils:deadline_from_binary(ValidUntil),
+    ?assertEqual(Deadline, DeadlineToken).
+
+-spec decrypt_resource_v2_test(config()) -> test_return().
+decrypt_resource_v2_test(_C) ->
+    ResourceToken = <<
+        "v2.eyJhbGciOiJFQ0RILUVTIiwiZW5jIjoiQTEyOEdDTSIsImVwayI6eyJhbGciOiJFQ0RILUVTIiwiY3J2IjoiUC0yNTYiLCJrdHkiOi"
+        "JFQyIsInVzZSI6ImVuYyIsIngiOiJmVU5NQjBCSE9WaGVuNW90VmRtam9NVFBRSURjU05aNldJTTdWNXNSN2VFIiwieSI6InZXYTBESUV"
+        "reFh0emMtcGxWNWwxVUZCWlJtZ1dKMUhNWFM5WEFKRmlWZlkifSwia2lkIjoia3hkRDBvclZQR29BeFdycUFNVGVRMFU1TVJvSzQ3dVp4"
+        "V2lTSmRnbzB0MCJ9..eT0dW5EScdCNt3FI.aVLGfY3Fc8j4pw-imH1i1-ZZpQFirI-47TBecRtRSMxjshMBPmQeHBUjJf2fLU648EBgN7"
+        "iqJoycqfc_6zwKBTb28u2YyqJOnR8ElSU0W1a7RoiojN7Z4RpIZvbeTVtATMHHXUCK68DTz6mBfIQ.SHYwxvU1GBWAOpaDS8TUJQ"
+    >>,
+    {ok, {Resource, ValidUntil}} = wapi_crypto:decrypt_resource_token(ResourceToken),
+    ?assertEqual(
+        {bank_card, #'BankCard'{
+            token = ?STRING,
+            bin = ?BIN(<<"4150399999000900">>),
+            masked_pan = ?LAST_DIGITS(<<"4150399999000900">>),
+            payment_system = visa,
+            exp_date = #'BankCardExpDate'{month = 1, year = 2021},
+            cardholder_name = ?STRING
+        }},
+        Resource
+    ),
+    ?assertEqual(<<"2020-11-16T07:35:00.736Z">>, wapi_utils:deadline_to_binary(ValidUntil)).
+
+%% Utils
+
+call_store_bank_card(CardNumber, C) ->
+    wapi_ct_helper:mock_services(
+        [
+            {binbase, fun('Lookup', _) -> {ok, ?BINBASE_LOOKUP_RESULT(<<"VISA">>)} end},
+            {cds_storage, fun
+                ('PutCard', _) -> {ok, ?PUT_CARD_RESULT(CardNumber)};
+                ('PutSession', _) -> {ok, ?PUT_SESSION_RESULT}
+            end}
+        ],
+        C
+    ),
+    wapi_client_payres:store_bank_card(?config(context, C), ?STORE_BANK_CARD_REQUEST(CardNumber)).

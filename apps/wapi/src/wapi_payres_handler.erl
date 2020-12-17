@@ -24,6 +24,10 @@
 -type request_context() :: swag_server_payres:request_context().
 -type handler_opts() :: swag_server_payres:handler_opts(term()).
 
+%% Macro
+
+-define(DEFAULT_RESOURCE_TOKEN_LIFETIME, <<"64m">>).
+
 %% API
 
 -spec map_error(atom(), swag_server_payres_validation:error()) -> swag_server_payres:error_reason().
@@ -85,11 +89,33 @@ process_request('GetBankCard', #{'token' := Token}, _Context, _Opts) ->
 
 %% Internal functions
 
+-spec resource_token_lifetime() -> timeout().
+resource_token_lifetime() ->
+    case genlib_app:env(wapi, resource_token_lifetime, ?DEFAULT_RESOURCE_TOKEN_LIFETIME) of
+        Value when is_integer(Value) ->
+            Value;
+        Value ->
+            case wapi_utils:parse_lifetime(Value) of
+                {ok, Lifetime} ->
+                    Lifetime;
+                Error ->
+                    erlang:error(Error, [Value])
+            end
+    end.
+
 decrypt_token(Token) ->
-    case wapi_crypto:decrypt_bankcard_token(Token) of
+    case wapi_crypto:decrypt_resource_token(Token) of
         unrecognized ->
             decode_legacy_token(Token);
-        {ok, BankCard} ->
+        {ok, {Resource, ValidUntil}} ->
+            {bank_card, BankCard} =
+                case wapi_utils:deadline_is_reached(ValidUntil) of
+                    true ->
+                        logger:warning("Resource token expired: ~p", [wapi_utils:deadline_to_binary(ValidUntil)]),
+                        erlang:error(badarg);
+                    _ ->
+                        Resource
+                end,
             LastDigits = wapi_utils:get_last_pan_digits(BankCard#'BankCard'.masked_pan),
             Bin = BankCard#'BankCard'.bin,
             #{
@@ -99,7 +125,7 @@ decrypt_token(Token) ->
                 <<"paymentSystem">> => genlib:to_binary(BankCard#'BankCard'.payment_system)
             };
         {error, {decryption_failed, _} = Error} ->
-            logger:warning("Bank card token decryption failed: ~p", [Error]),
+            logger:warning("Resource token decryption failed: ~p", [Error]),
             erlang:error(badarg)
     end.
 
@@ -237,14 +263,22 @@ decode_bank_card(BankCard, AuthData) ->
         last_digits := LastDigits,
         payment_system := PaymentSystem
     } = BankCard,
-    EncryptedToken = wapi_crypto:encrypt_bankcard_token(to_thrift(bank_card, BankCard)),
+    BankCardThrift = to_thrift(bank_card, BankCard),
+    TokenValidUntil = wapi_utils:deadline_from_timeout(resource_token_lifetime()),
+    EncryptedToken = wapi_crypto:create_resource_token({bank_card, BankCardThrift}, TokenValidUntil),
     genlib_map:compact(#{
         <<"token">> => EncryptedToken,
         <<"bin">> => Bin,
         <<"paymentSystem">> => genlib:to_binary(PaymentSystem),
         <<"lastDigits">> => LastDigits,
-        <<"authData">> => decode_auth_data(AuthData)
+        <<"authData">> => decode_auth_data(AuthData),
+        <<"validUntil">> => decode_deadline(TokenValidUntil)
     }).
+
+decode_deadline(undefined) ->
+    undefined;
+decode_deadline(Deadline) ->
+    wapi_utils:deadline_to_binary(Deadline).
 
 decode_auth_data(PaymentSessionID) when is_binary(PaymentSessionID) ->
     genlib:to_binary(PaymentSessionID);
