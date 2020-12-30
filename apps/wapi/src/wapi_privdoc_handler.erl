@@ -115,7 +115,7 @@ to_swag(token, {Token, PresentationData}) ->
     wapi_utils:map_to_base64url(PresentationData#{<<"token">> => Token}).
 
 put_doc_data_to_cds(IdentityDoc, Context) ->
-    service_call({identdoc_storage, 'Put', [IdentityDoc]}, Context).
+    service_call({identdoc_storage, 'Put', {IdentityDoc}}, Context).
 
 service_call({ServiceName, Function, Args}, #{woody_context := WoodyContext}) ->
     wapi_woody_client:call_service(ServiceName, Function, Args, WoodyContext).

@@ -155,7 +155,7 @@ process_card_data(CardData, CVV, #{woody_context := WoodyContext} = Context) ->
     end.
 
 put_card_to_cds(CardData, BankInfo, #{woody_context := WoodyContext}) ->
-    Call = {cds_storage, 'PutCard', [CardData]},
+    Call = {cds_storage, 'PutCard', {CardData}},
     case service_call(Call, WoodyContext) of
         {ok, #cds_PutCardResult{bank_card = BankCard}} ->
             {BankCard, BankInfo};
@@ -197,7 +197,7 @@ validate_card_data(CardData, ExtraCardData, SessionData, PaymentSystem) ->
 
 put_session_to_cds(SessionData, #{woody_context := WoodyContext}) ->
     SessionID = make_random_id(),
-    Call = {cds_storage, 'PutSession', [SessionID, SessionData]},
+    Call = {cds_storage, 'PutSession', {SessionID, SessionData}},
     {ok, ok} = service_call(Call, WoodyContext),
     SessionID.
 
