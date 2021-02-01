@@ -37,6 +37,7 @@
     extra_properties := map()
 }.
 
+-export_type([config/0]).
 -export_type([context/0]).
 
 -type protocol() :: ipv4 | ipv6.

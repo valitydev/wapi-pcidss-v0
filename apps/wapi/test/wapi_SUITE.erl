@@ -31,16 +31,16 @@
 -export([valid_until_resource_test/1]).
 -export([decrypt_resource_v2_test/1]).
 
--type config() :: ct_helper:config().
--type test_case_name() :: ct_helper:test_case_name().
--type group_name() :: ct_helper:group_name().
+-type config() :: wapi_ct_helper:config().
+-type test_case_name() :: atom().
+-type group_name() :: atom().
 -type test_return() :: _ | no_return().
 
 -spec all() -> [test_case_name() | {group, group_name()}].
 all() ->
     [{group, default}].
 
--spec groups() -> [{group_name(), list(), [test_case_name()]}].
+-spec groups() -> [{group_name(), [test_case_name()]}].
 groups() ->
     [
         {default, [
@@ -67,26 +67,26 @@ init_per_suite(C) ->
 -spec end_per_suite(config()) -> _.
 end_per_suite(C) ->
     _ = wapi_ct_helper:stop_mocked_service_sup(?config(suite_test_sup, C)),
-    [application:stop(App) || App <- proplists:get_value(apps, C)],
+    _ = [application:stop(App) || App <- proplists:get_value(apps, C)],
     ok.
 
 -spec init_per_group(group_name(), config()) -> config().
 init_per_group(default, Config) ->
-    Token = wapi_ct_helper:issue_token([{[party], write}, {[party], read}], unlimited),
+    {ok, Token} = wapi_ct_helper:issue_token([{[party], write}, {[party], read}], unlimited),
     [{context, wapi_ct_helper:get_context(Token)} | Config].
 
 -spec end_per_group(group_name(), config()) -> _.
 end_per_group(_Group, C) ->
-    proplists:delete(context, C),
+    _ = proplists:delete(context, C),
     ok.
 
 -spec init_per_testcase(test_case_name(), config()) -> config().
 init_per_testcase(_Name, C) ->
     [{test_sup, wapi_ct_helper:start_mocked_service_sup(?MODULE)} | C].
 
--spec end_per_testcase(test_case_name(), config()) -> config().
+-spec end_per_testcase(test_case_name(), config()) -> _.
 end_per_testcase(_Name, C) ->
-    wapi_ct_helper:stop_mocked_service_sup(?config(test_sup, C)),
+    _ = wapi_ct_helper:stop_mocked_service_sup(?config(test_sup, C)),
     ok.
 
 %%% Tests
@@ -128,7 +128,7 @@ store_bank_card_expired_test(C) ->
 
 -spec store_bank_card_invalid_cardholder_test(config()) -> test_return().
 store_bank_card_invalid_cardholder_test(C) ->
-    wapi_ct_helper:mock_services(
+    _ = wapi_ct_helper:mock_services(
         [
             {binbase, fun('Lookup', _) ->
                 {ok, ?BINBASE_LOOKUP_RESULT(<<"VISA">>)}
@@ -185,7 +185,7 @@ get_bank_card_success_test(C) ->
 
 -spec store_privdoc_success_test(config()) -> test_return().
 store_privdoc_success_test(C) ->
-    wapi_ct_helper:mock_services([{identdoc_storage, fun('Put', _) -> {ok, ?STRING} end}], C),
+    _ = wapi_ct_helper:mock_services([{identdoc_storage, fun('Put', _) -> {ok, ?STRING} end}], C),
     {ok, _} = wapi_client_privdoc:store_private_document(?config(context, C), ?STORE_PRIVATE_DOCUMENT_REQUEST).
 
 -spec create_resource_test(config()) -> test_return().
@@ -235,7 +235,7 @@ decrypt_resource_v2_test(_C) ->
 %% Utils
 
 call_store_bank_card(CardNumber, C) ->
-    wapi_ct_helper:mock_services(
+    _ = wapi_ct_helper:mock_services(
         [
             {binbase, fun('Lookup', _) -> {ok, ?BINBASE_LOOKUP_RESULT(<<"VISA">>)} end},
             {cds_storage, fun

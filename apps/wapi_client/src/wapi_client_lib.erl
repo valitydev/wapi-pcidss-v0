@@ -145,7 +145,7 @@ headers(#{deadline := Deadline} = Context) ->
     case maps:get(token, Context) of
         <<>> ->
             RequiredHeaders;
-        {ok, Token} ->
+        Token ->
             [auth_header(Token) | RequiredHeaders]
     end.
 

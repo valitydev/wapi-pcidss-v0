@@ -55,7 +55,9 @@ deadline_from_timeout(Timeout) ->
 deadline_is_reached(Deadline) ->
     woody_deadline:is_reached(Deadline).
 
--spec parse_lifetime(binary()) -> {ok, timeout()} | {error, bad_lifetime}.
+-spec parse_lifetime
+    (undefined) -> {error, bad_lifetime};
+    (binary()) -> {ok, timeout()} | {error, bad_lifetime}.
 parse_lifetime(undefined) ->
     {error, bad_lifetime};
 parse_lifetime(Bin) ->
@@ -87,11 +89,12 @@ unit_factor(_Other) ->
 
 -spec base64url_to_map(binary()) -> map() | no_return().
 base64url_to_map(Base64) when is_binary(Base64) ->
-    jsx:decode(base64url:decode(Base64), [return_maps]).
+    {ok, Json} = jose_base64url:decode(Base64),
+    jsx:decode(Json, [return_maps]).
 
 -spec map_to_base64url(map()) -> binary() | no_return().
 map_to_base64url(Map) when is_map(Map) ->
-    base64url:encode(jsx:encode(Map)).
+    jose_base64url:encode(jsx:encode(Map)).
 
 -spec redact(Subject :: binary(), Pattern :: binary()) -> Redacted :: binary().
 redact(Subject, Pattern) ->
