@@ -376,6 +376,12 @@ get_payment_system_assertions() ->
             cardnumber => [{length, [16]}, luhn],
             cvv => [{length, [3]}],
             exp_date => [expiration]
+        },
+
+        %% NOTE: Yes, folks, only 16-digit card number
+        %% asked twice
+        uzcard => #{
+            cardnumber => [{length, [16]}]
         }
     }.
 
