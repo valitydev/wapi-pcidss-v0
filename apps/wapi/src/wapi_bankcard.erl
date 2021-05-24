@@ -191,7 +191,7 @@ decode_payment_system(PaymentSystem) ->
 -spec decode_issuer_country(binary() | undefined) -> dmsl_domain_thrift:'Residence'() | undefined.
 decode_issuer_country(Residence) when is_binary(Residence) ->
     try
-        {enum, Variants} = dmsl_domain_thrift:enum_info('Residence'),
+        {enum, Variants} = dmsl_domain_thrift:enum_info('CountryCode'),
         Variant = erlang:list_to_existing_atom(string:to_lower(erlang:binary_to_list(Residence))),
         element(1, lists:keyfind(Variant, 1, Variants))
     catch
