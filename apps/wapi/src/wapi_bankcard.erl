@@ -9,7 +9,7 @@
 -export([payment_system/1]).
 
 -type bank_info() :: #{
-    payment_system := dmsl_domain_thrift:'BankCardPaymentSystem'(),
+    payment_system := dmsl_domain_thrift:'LegacyBankCardPaymentSystem'(),
     bank_name := binary(),
     issuer_country := dmsl_domain_thrift:'Residence'() | undefined,
     metadata := map()
@@ -28,7 +28,7 @@
 }.
 
 -type session_data() :: cds_proto_storage_thrift:'SessionData'().
--type payment_system() :: dmsl_domain_thrift:'BankCardPaymentSystem'().
+-type payment_system() :: dmsl_domain_thrift:'LegacyBankCardPaymentSystem'().
 -type reason() :: unrecognized | {invalid, cardnumber | cvv | exp_date, check()}.
 
 -spec lookup_bank_info(_PAN :: binary(), woody_context:ctx()) -> {ok, bank_info()} | {error, lookup_error()}.
@@ -62,7 +62,7 @@ decode_bank_info(#binbase_ResponseData{bin_data = BinData, version = Version}) -
 %%
 %% List of known payment systems as of https://github.com/rbkmoney/binbase-data/commit/dcfabb1e.
 %% Please keep in sorted order.
--spec decode_payment_system(binary()) -> dmsl_domain_thrift:'BankCardPaymentSystem'().
+-spec decode_payment_system(binary()) -> dmsl_domain_thrift:'LegacyBankCardPaymentSystem'().
 decode_payment_system(<<"AMERICAN EXPRESS">>) ->
     amex;
 decode_payment_system(<<"AMERICAN EXPRESS COMPANY">>) ->
@@ -191,7 +191,7 @@ decode_payment_system(PaymentSystem) ->
 -spec decode_issuer_country(binary() | undefined) -> dmsl_domain_thrift:'Residence'() | undefined.
 decode_issuer_country(Residence) when is_binary(Residence) ->
     try
-        {enum, Variants} = dmsl_domain_thrift:enum_info('Residence'),
+        {enum, Variants} = dmsl_domain_thrift:enum_info('CountryCode'),
         Variant = erlang:list_to_existing_atom(string:to_lower(erlang:binary_to_list(Residence))),
         element(1, lists:keyfind(Variant, 1, Variants))
     catch
