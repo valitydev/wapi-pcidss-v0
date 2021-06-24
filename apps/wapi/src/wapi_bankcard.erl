@@ -5,13 +5,15 @@
 -include_lib("cds_proto/include/cds_proto_storage_thrift.hrl").
 
 -export([lookup_bank_info/2]).
--export([validate/5]).
+-export([merge_data/3]).
 -export([payment_system/1]).
+-export([decode_payment_system/1]).
 
 -type bank_info() :: #{
-    payment_system := dmsl_domain_thrift:'LegacyBankCardPaymentSystem'(),
+    payment_system := bankcard_validator:payment_system(),
+    payment_system_deprecated := dmsl_domain_thrift:'LegacyBankCardPaymentSystem'(),
     bank_name := binary(),
-    issuer_country := dmsl_domain_thrift:'Residence'() | undefined,
+    issuer_country := dmsl_domain_thrift:'CountryCode'() | undefined,
     metadata := map()
 }.
 
@@ -28,8 +30,6 @@
 }.
 
 -type session_data() :: cds_proto_storage_thrift:'SessionData'().
--type payment_system() :: dmsl_domain_thrift:'LegacyBankCardPaymentSystem'().
--type reason() :: unrecognized | {invalid, cardnumber | cvv | exp_date, check()}.
 
 -spec lookup_bank_info(_PAN :: binary(), woody_context:ctx()) -> {ok, bank_info()} | {error, lookup_error()}.
 lookup_bank_info(PAN, WoodyCtx) ->
@@ -44,7 +44,8 @@ lookup_bank_info(PAN, WoodyCtx) ->
 decode_bank_info(#binbase_ResponseData{bin_data = BinData, version = Version}) ->
     try
         {ok, #{
-            payment_system => decode_payment_system(BinData#binbase_BinData.payment_system),
+            payment_system => BinData#binbase_BinData.payment_system,
+            payment_system_deprecated => decode_payment_system(BinData#binbase_BinData.payment_system),
             bank_name => BinData#binbase_BinData.bank_name,
             issuer_country => decode_issuer_country(BinData#binbase_BinData.iso_country_code),
             metadata => #{
@@ -202,198 +203,33 @@ decode_issuer_country(Residence) when is_binary(Residence) ->
 decode_issuer_country(undefined) ->
     undefined.
 
--spec payment_system(bank_info()) -> payment_system().
+-spec payment_system(bank_info()) -> bankcard_validator:payment_system().
 payment_system(BankInfo) ->
     maps:get(payment_system, BankInfo).
 
--type validation_env() :: #{
-    % current time in UTC by default
-    now => calendar:datetime()
-}.
-
--spec validate(
-    card_data(),
-    extra_card_data(),
-    session_data() | undefined,
-    payment_system(),
-    validation_env()
-) -> ok | {error, reason()}.
-validate(CardData, ExtraCardData, SessionData, PaymentSystem, Env) ->
-    Rulesets = get_payment_system_assertions(),
-    Assertions = maps:get(PaymentSystem, Rulesets, []),
-    validate_card_data(merge_data(CardData, ExtraCardData, SessionData), Assertions, Env).
-
+-spec merge_data(card_data(), extra_card_data(), session_data() | undefined) -> bankcard_validator:bankcard_data().
 merge_data(CardData, ExtraCardData, undefined) ->
     maps:merge(convert_card_data(CardData), ExtraCardData);
 merge_data(CardData, ExtraCardData, #cds_SessionData{auth_data = AuthData}) ->
-    CVV = get_cvv_from_session_data(AuthData),
+    CVC = get_cvc_from_session_data(AuthData),
     CardDataMap0 = convert_card_data(CardData),
     CardDataMap1 = maps:merge(CardDataMap0, ExtraCardData),
-    CardDataMap1#{cvv => maybe_undefined(CVV)}.
+    CardDataMap1#{cvc => maybe_undefined(CVC)}.
 
-get_cvv_from_session_data({card_security_code, AuthData}) ->
+get_cvc_from_session_data({card_security_code, AuthData}) ->
     AuthData#cds_CardSecurityCode.value;
-get_cvv_from_session_data(_) ->
+get_cvc_from_session_data(_) ->
     undefined.
-
-%%
-
-validate_card_data(CardData, Assertions, Env) ->
-    DefaultEnv = #{now => calendar:universal_time()},
-    try
-        run_assertions(CardData, Assertions, maps:merge(DefaultEnv, Env))
-    catch
-        Reason ->
-            {error, Reason}
-    end.
-
-run_assertions(CardData, Assertions, Env) ->
-    genlib_map:foreach(
-        fun(K, Checks) ->
-            V = maps:get(K, CardData, undefined),
-            lists:foreach(
-                fun(C) -> check_value(V, C, Env) orelse throw({invalid, K, C}) end,
-                Checks
-            )
-        end,
-        Assertions
-    ).
-
-check_value(undefined, _, _) ->
-    true;
-check_value(V, {length, Ls}, _) ->
-    lists:any(fun(L) -> check_length(V, L) end, Ls);
-check_value(V, luhn, _) ->
-    check_luhn(V, 0);
-check_value({M, Y}, expiration, #{now := {{Y0, M0, _DD}, _Time}}) ->
-    M >= 1 andalso
-        M =< 12 andalso
-        {Y, M} >= {Y0, M0}.
-
-check_length(V, {range, L, U}) ->
-    L =< byte_size(V) andalso byte_size(V) =< U;
-check_length(V, L) ->
-    byte_size(V) =:= L.
-
-check_luhn(<<CheckSum>>, Sum) ->
-    case Sum * 9 rem 10 of
-        M when M =:= CheckSum - $0 ->
-            true;
-        _M ->
-            false
-    end;
-check_luhn(<<N, Rest/binary>>, Sum) when byte_size(Rest) rem 2 =:= 1 ->
-    case (N - $0) * 2 of
-        M when M >= 10 ->
-            check_luhn(Rest, Sum + M div 10 + M rem 10);
-        M ->
-            check_luhn(Rest, Sum + M)
-    end;
-check_luhn(<<N, Rest/binary>>, Sum) ->
-    check_luhn(Rest, Sum + N - $0).
-
-% config
-
--type check() ::
-    {length, [pos_integer() | {range, pos_integer(), pos_integer()}]}
-    | luhn
-    | expiration.
-
-get_payment_system_assertions() ->
-    #{
-        visa => #{
-            cardnumber => [{length, [13, 16]}, luhn],
-            cvv => [{length, [3]}],
-            exp_date => [expiration]
-        },
-
-        mastercard => #{
-            cardnumber => [{length, [16]}, luhn],
-            cvv => [{length, [3]}],
-            exp_date => [expiration]
-        },
-
-        %% Maestro Global Rules
-        %% https://www.mastercard.com/hr/merchants/_assets/Maestro_rules.pdf
-        %%
-        %% 6.2.1.3 Primary Account Number (PAN)
-        %%
-        %% The PAN must be no less than twelve (12) and no more than nineteen (19)
-        %% digits in length. All digits of the PAN must be numeric. It is strongly
-        %% recommended that Members issue Cards with a PAN of nineteen (19) digits.
-        %%
-        %% The IIN appears in the first six (6) digits of the PAN and must be assigned
-        %% by the ISO Registration Authority, and must be unique.
-        maestro => #{
-            cardnumber => [{length, [{range, 12, 19}]}, luhn],
-            cvv => [{length, [3]}],
-            exp_date => [expiration]
-        },
-
-        nspkmir => #{
-            cardnumber => [{length, [16]}, luhn],
-            cvv => [{length, [3]}],
-            exp_date => [expiration]
-        },
-
-        amex => #{
-            cardnumber => [{length, [15]}, luhn],
-            cvv => [{length, [3, 4]}],
-            exp_date => [expiration]
-        },
-
-        dinersclub => #{
-            cardnumber => [{length, [{range, 14, 19}]}, luhn],
-            cvv => [{length, [3]}],
-            exp_date => [expiration]
-        },
-
-        discover => #{
-            cardnumber => [{length, [16]}, luhn],
-            cvv => [{length, [3]}],
-            exp_date => [expiration]
-        },
-
-        unionpay => #{
-            cardnumber => [{length, [{range, 16, 19}]}],
-            cvv => [{length, [3]}],
-            exp_date => [expiration]
-        },
-
-        jcb => #{
-            cardnumber => [{length, [16]}, luhn],
-            cvv => [{length, [3]}],
-            exp_date => [expiration]
-        },
-
-        forbrugsforeningen => #{
-            cardnumber => [{length, [16]}, luhn],
-            cvv => [{length, [3]}],
-            exp_date => [expiration]
-        },
-
-        dankort => #{
-            cardnumber => [{length, [16]}, luhn],
-            cvv => [{length, [3]}],
-            exp_date => [expiration]
-        },
-
-        %% NOTE: Yes, folks, only 16-digit card number
-        %% asked twice
-        uzcard => #{
-            cardnumber => [{length, [16]}]
-        }
-    }.
 
 convert_card_data(CardData) ->
     #cds_PutCardData{
         pan = PAN
     } = CardData,
     #{
-        cardnumber => PAN
+        card_number => PAN
     }.
 
 maybe_undefined(<<>>) ->
     undefined;
-maybe_undefined(CVV) ->
-    CVV.
+maybe_undefined(CVC) ->
+    CVC.

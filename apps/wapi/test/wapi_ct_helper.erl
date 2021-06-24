@@ -2,6 +2,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("wapi_dummy_data.hrl").
+-include_lib("damsel/include/dmsl_domain_config_thrift.hrl").
 
 -export([init_suite/2]).
 -export([init_suite/3]).
@@ -23,6 +24,16 @@
 -define(WAPI_PORT, 8080).
 -define(WAPI_HOST_NAME, "localhost").
 -define(WAPI_URL, ?WAPI_HOST_NAME ++ ":" ++ integer_to_list(?WAPI_PORT)).
+-define(PAYMENT_SYSTEM_REF(ID), {payment_system, #domain_PaymentSystemRef{id = ID}}).
+-define(PAYMENT_SYSTEM_OBJ(ID, Rules),
+    {payment_system, #domain_PaymentSystemObject{
+        ref = #domain_PaymentSystemRef{id = ID},
+        data = #domain_PaymentSystem{
+            name = ID,
+            validation_rules = Rules
+        }
+    }}
+).
 
 %%
 -type config() :: [{atom(), any()}].
@@ -62,8 +73,35 @@ init_suite(Module, Config, WapiEnv) ->
     Apps1 =
         start_app(woody) ++
             start_app(scoper),
+    ServiceURLs = mock_services_(
+        [
+            {
+                'Repository',
+                {dmsl_domain_config_thrift, 'Repository'},
+                fun('Checkout', _) ->
+                    {ok, #'Snapshot'{
+                        version = 1,
+                        domain = #{
+                            ?PAYMENT_SYSTEM_REF(<<"VISA">>) =>
+                                ?PAYMENT_SYSTEM_OBJ(
+                                    <<"VISA">>,
+                                    bankcard_validator_legacy:get_payment_system_ruleset(<<"VISA">>)
+                                ),
+                            ?PAYMENT_SYSTEM_REF(<<"MASTERCARD">>) =>
+                                ?PAYMENT_SYSTEM_OBJ(
+                                    <<"MASTERCARD">>,
+                                    bankcard_validator_legacy:get_payment_system_ruleset(<<"MASTERCARD">>)
+                                )
+                        }
+                    }}
+                end
+            }
+        ],
+        SupPid
+    ),
     Apps2 =
-        start_wapi(Config, WapiEnv),
+        start_wapi(Config, WapiEnv) ++
+            start_app(dmt_client, [{max_cache_size, #{}}, {service_urls, ServiceURLs}, {cache_update_interval, 50000}]),
     [{apps, lists:reverse(Apps2 ++ Apps1)}, {suite_test_sup, SupPid} | Config].
 
 -spec start_app(app_name()) -> [app_name()].

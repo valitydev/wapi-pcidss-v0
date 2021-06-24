@@ -29,7 +29,8 @@
         binbase_proto,
         uac,
         prometheus,
-        prometheus_cowboy
+        prometheus_cowboy,
+        bankcard_validator
     ]},
     {env, []}
 ]}.

@@ -98,8 +98,7 @@ store_bank_card_success_test(C) ->
     LastDigits = ?LAST_DIGITS(CardNumber),
     {ok, #{
         <<"bin">> := Bin,
-        <<"lastDigits">> := LastDigits,
-        <<"paymentSystem">> := <<"visa">>
+        <<"lastDigits">> := LastDigits
     }} = call_store_bank_card(CardNumber, C).
 
 -spec store_bank_card_expired_test(config()) -> test_return().
@@ -164,8 +163,7 @@ store_pan_only_bank_card_ok_test(C) ->
     CardNumber = <<"4150399999000900">>,
     {ok, #{
         <<"bin">> := <<"415039">>,
-        <<"lastDigits">> := <<"0900">>,
-        <<"paymentSystem">> := <<"visa">>
+        <<"lastDigits">> := <<"0900">>
     }} = call_store_bank_card(CardNumber, C).
 
 -spec get_bank_card_success_test(config()) -> test_return().
@@ -179,8 +177,7 @@ get_bank_card_success_test(C) ->
     {ok, #{
         <<"bin">> := Bin,
         <<"lastDigits">> := LastDigits,
-        <<"token">> := Token,
-        <<"paymentSystem">> := <<"visa">>
+        <<"token">> := Token
     }} = wapi_client_payres:get_bank_card(?config(context, C), Token).
 
 -spec store_privdoc_success_test(config()) -> test_return().
@@ -224,7 +221,7 @@ decrypt_resource_v2_test(_C) ->
             token = ?STRING,
             bin = ?BIN(<<"4150399999000900">>),
             masked_pan = ?LAST_DIGITS(<<"4150399999000900">>),
-            payment_system = visa,
+            payment_system_deprecated = visa,
             exp_date = #'BankCardExpDate'{month = 1, year = 2021},
             cardholder_name = ?STRING
         }},
