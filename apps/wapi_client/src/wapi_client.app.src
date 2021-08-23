@@ -1,4 +1,4 @@
-{application, wapi_client , [
+{application, wapi_client, [
     {description, "An api wrapper for generated swag_clients."},
     {vsn, "0.1.0"},
     {applications, [
