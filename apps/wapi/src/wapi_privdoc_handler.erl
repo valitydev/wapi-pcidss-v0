@@ -7,7 +7,7 @@
 
 %% swag_server_privdoc_logic_handler callbacks
 -export([map_error/2]).
--export([authorize_api_key/3]).
+-export([authorize_api_key/4]).
 -export([handle_request/4]).
 
 %% wapi_handler callbacks
@@ -54,8 +54,9 @@ map_error_type(schema_violated) -> <<"SchemaViolated">>;
 map_error_type(wrong_type) -> <<"WrongType">>;
 map_error_type(wrong_array) -> <<"WrongArray">>.
 
--spec authorize_api_key(operation_id(), api_key(), handler_opts()) -> false | {true, wapi_auth:context()}.
-authorize_api_key(OperationID, ApiKey, Opts) ->
+-spec authorize_api_key(operation_id(), api_key(), request_context(), handler_opts()) ->
+    Result :: false | {true, wapi_auth:context()}.
+authorize_api_key(OperationID, ApiKey, _Context, Opts) ->
     scope(OperationID, fun() ->
         wapi_auth:authorize_api_key(OperationID, ApiKey, Opts)
     end).
