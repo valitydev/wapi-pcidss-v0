@@ -1,12 +1,13 @@
-# general
-log
+# Build artifacts
 /_build/
-*~
-erl_crash.dump
-.tags*
-.edts
-
-# rebar
-/_checkouts/
-
+*.o
 *.beam
+*.plt
+
+# Run artifacts
+erl_crash.dump
+log
+
+# make stuff
+/.image.*
+Makefile.env

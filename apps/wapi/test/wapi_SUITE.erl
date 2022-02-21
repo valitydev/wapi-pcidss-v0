@@ -25,7 +25,6 @@
 -export([store_bank_card_expired_test/1]).
 -export([store_bank_card_invalid_cardholder_test/1]).
 -export([get_bank_card_success_test/1]).
--export([store_privdoc_success_test/1]).
 -export([store_pan_only_bank_card_ok_test/1]).
 -export([create_resource_test/1]).
 -export([valid_until_resource_test/1]).
@@ -49,7 +48,6 @@ groups() ->
             store_bank_card_invalid_cardholder_test,
             store_pan_only_bank_card_ok_test,
             get_bank_card_success_test,
-            store_privdoc_success_test,
             create_resource_test,
             valid_until_resource_test,
             decrypt_resource_v2_test
@@ -179,11 +177,6 @@ get_bank_card_success_test(C) ->
         <<"lastDigits">> := LastDigits,
         <<"token">> := Token
     }} = wapi_client_payres:get_bank_card(?config(context, C), Token).
-
--spec store_privdoc_success_test(config()) -> test_return().
-store_privdoc_success_test(C) ->
-    _ = wapi_ct_helper:mock_services([{identdoc_storage, fun('Put', _) -> {ok, ?STRING} end}], C),
-    {ok, _} = wapi_client_privdoc:store_private_document(?config(context, C), ?STORE_PRIVATE_DOCUMENT_REQUEST).
 
 -spec create_resource_test(config()) -> test_return().
 create_resource_test(C) ->

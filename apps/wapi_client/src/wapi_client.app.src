@@ -5,7 +5,6 @@
         kernel,
         stdlib,
         swag_client_payres,
-        swag_client_privdoc,
         genlib
     ]}
 ]}.
