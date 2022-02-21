@@ -9,13 +9,4 @@ erl_crash.dump
 # rebar
 /_checkouts/
 
-# generated
-apps/swag_*
-
 *.beam
-
-# containerization
-\#*
-.\#*
-Dockerfile
-docker-compose.yml
