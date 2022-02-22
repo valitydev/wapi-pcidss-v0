@@ -103,7 +103,7 @@
   1},
  {<<"uac">>,
   {git,"https://github.com/valitydev/erlang_uac.git",
-       {ref,"b67fca391127ad6aa3345aa67a7460a10a856c52"}},
+       {ref,"be761f8dec4afc6a39065de54993847e24261f2f"}},
   0},
  {<<"unicode_util_compat">>,{pkg,<<"unicode_util_compat">>,<<"0.7.0">>},1},
  {<<"woody">>,
