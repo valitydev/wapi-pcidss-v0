@@ -5,7 +5,7 @@
   0},
  {<<"binbase_proto">>,
   {git,"https://github.com/valitydev/binbase-proto.git",
-       {ref,"86b79c1c1381d8b750790903acca19101c68993d"}},
+       {ref,"56a1af25a016a95a349e87dc606cc7dcdc300ad3"}},
   0},
  {<<"cache">>,{pkg,<<"cache">>,<<"2.3.3">>},1},
  {<<"cds_proto">>,
