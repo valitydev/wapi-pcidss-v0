@@ -37,7 +37,7 @@
   0},
  {<<"dmt_client">>,
   {git,"https://github.com/valitydev/dmt_client.git",
-       {ref,"e9b1961b96ce138a34f6cf9cebef6ddf66af1942"}},
+       {ref,"7939898b874ad93e43724ee30740035fcff62973"}},
   0},
  {<<"dmt_core">>,
   {git,"https://github.com/valitydev/dmt_core.git",
