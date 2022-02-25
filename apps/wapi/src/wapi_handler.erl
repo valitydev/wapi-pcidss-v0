@@ -7,14 +7,10 @@
 %% Behaviour definition
 
 -type operation_id() ::
-    swag_server_payres:operation_id()
-    %% swag_server_wallet:operation_id() |
-    | swag_server_privdoc:operation_id().
+    swag_server_payres:operation_id().
 
 -type swagger_context() ::
-    swag_server_payres:request_context()
-    %% swag_server_wallet:request_context() |
-    | swag_server_privdoc:request_context().
+    swag_server_payres:request_context().
 
 -type context() :: #{
     woody_context := woody_context:ctx(),
@@ -22,9 +18,7 @@
 }.
 
 -type opts() ::
-    %% swag_server_wallet:handler_opts() |
-    swag_server_payres:handler_opts(term())
-    | swag_server_privdoc:handler_opts(term()).
+    swag_server_payres:handler_opts(term()).
 
 -type req_data() :: #{atom() | binary() => term()}.
 -type status_code() :: 200..599.

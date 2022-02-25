@@ -100,8 +100,8 @@ init_suite(Module, Config, WapiEnv) ->
         SupPid
     ),
     Apps2 =
-        start_wapi(Config, WapiEnv) ++
-            start_app(dmt_client, [{max_cache_size, #{}}, {service_urls, ServiceURLs}, {cache_update_interval, 50000}]),
+        start_app(dmt_client, [{max_cache_size, #{}}, {service_urls, ServiceURLs}, {cache_update_interval, 50000}]) ++
+            start_wapi(Config, WapiEnv),
     [{apps, lists:reverse(Apps2 ++ Apps1)}, {suite_test_sup, SupPid} | Config].
 
 -spec start_app(app_name()) -> [app_name()].
@@ -138,7 +138,9 @@ start_wapi(Config, ExtraEnv) ->
                 {access_conf, #{
                     jwt => #{
                         keyset => #{
-                            wapi => {pem_file, get_keysource("keys/local/private.pem", Config)}
+                            wapi => #{
+                                source => {pem_file, get_keysource("keys/local/private.pem", Config)}
+                            }
                         }
                     }
                 }},

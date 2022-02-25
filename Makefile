@@ -1,149 +1,96 @@
-REBAR := $(shell which rebar3 2>/dev/null || which ./rebar3)
-SUBMODULES = schemes/swag build_utils
-SUBTARGETS = $(patsubst %,%/.git,$(SUBMODULES))
+# HINT
+# Use this file to override variables here.
+# For example, to run with podman put `DOCKER=podman` there.
+-include Makefile.env
 
-COMPOSE_HTTP_TIMEOUT := 300
-export COMPOSE_HTTP_TIMEOUT
+# NOTE
+# Variables specified in `.env` file are used to pick and setup specific
+# component versions, both when building a development image and when running
+# CI workflows on GH Actions. This ensures that tasks run with `wc-` prefix
+# (like `wc-dialyze`) are reproducible between local machine and CI runners.
+DOTENV := $(shell grep -v '^\#' .env)
 
-UTILS_PATH := build_utils
-TEMPLATES_PATH := .
-
-# Name of the service
-SERVICE_NAME := wapi
-# Service image default tag
-SERVICE_IMAGE_TAG ?= $(shell git rev-parse HEAD)
-# The tag for service image to be pushed with
-SERVICE_IMAGE_PUSH_TAG ?= $(SERVICE_IMAGE_TAG)
-
-# Base image for the service
-BASE_IMAGE_NAME := service-erlang
-BASE_IMAGE_TAG := ef20e2ec1cb1528e9214bdeb862b15478950d5cd
-
-BUILD_IMAGE_NAME := build-erlang
-BUILD_IMAGE_TAG := aaa79c2d6b597f93f5f8b724eecfc31ec2e2a23b
-
-CALL_ANYWHERE := \
-	submodules \
-	all compile xref lint dialyze test cover \
-	start devrel release clean distclean \
-	swag_server.generate swag_client.generate \
-	generate regenerate swag_server.regenerate swag_client.regenerate \
-	check_format format
-
-CALL_W_CONTAINER := $(CALL_ANYWHERE)
-
-.PHONY: $(CALL_W_CONTAINER) all
+DOCKER ?= docker
+REBAR ?= rebar3
+TEST_CONTAINER_NAME ?= testrunner
 
 all: compile
 
--include $(UTILS_PATH)/make_lib/utils_container.mk
--include $(UTILS_PATH)/make_lib/utils_image.mk
+# Development images
 
-$(SUBTARGETS): %/.git: %
-	git submodule update --init $<
-	touch $@
+DEV_IMAGE_TAG = $(TEST_CONTAINER_NAME)-dev
+DEV_IMAGE_ID = $(file < .image.dev)
 
-submodules: $(SUBTARGETS)
+.PHONY: dev-image clean-dev-image wc-shell test
 
-generate: swag_server.generate swag_client.generate
+dev-image: .image.dev
 
-regenerate: swag_server.regenerate swag_client.regenerate
+DOCKER_BUILD_ARGS = $(DOTENV:%=--build-arg %)
 
-compile: submodules generate
+.image.dev: Dockerfile.dev .env
+	$(DOCKER) build . -f Dockerfile.dev --tag $(DEV_IMAGE_TAG) $(DOCKER_BUILD_ARGS)
+	$(DOCKER) image ls -q -f "reference=$(DEV_IMAGE_ID)" | head -n1 > $@
+
+clean-dev-image:
+ifneq ($(DEV_IMAGE_ID),)
+	$(DOCKER) image rm -f $(DEV_IMAGE_TAG)
+	rm .image.dev
+endif
+
+DOCKER_WC_OPTIONS := -v $(PWD):$(PWD) --workdir $(PWD)
+DOCKER_WC_EXTRA_OPTIONS ?= --rm
+DOCKER_RUN = $(DOCKER) run -ti $(DOCKER_WC_OPTIONS) $(DOCKER_WC_EXTRA_OPTIONS)
+
+# Utility tasks
+
+wc-shell: dev-image
+	$(DOCKER_RUN) $(DEV_IMAGE_TAG)
+
+wc-%: dev-image
+	$(DOCKER_RUN) $(DEV_IMAGE_TAG) make $*
+
+# Rebar tasks
+
+rebar-shell:
+	$(REBAR) shell
+
+compile:
 	$(REBAR) compile
 
 xref:
 	$(REBAR) xref
 
-lint: generate
-	elvis rock -V
+lint:
+	$(REBAR) lint
 
-check_format:
+check-format:
 	$(REBAR) fmt -c
-
-format:
-	$(REBAR) fmt -w
 
 dialyze:
 	$(REBAR) as test dialyzer
 
-start: submodules
-	$(REBAR) run
-
-devrel: submodules
-	$(REBAR) release
-
-release: submodules generate
+release:
 	$(REBAR) as prod release
 
-clean:
-	$(REBAR) cover -r
-	$(REBAR) clean
+eunit:
+	$(REBAR) eunit --cover
 
-distclean: swag_server.distclean swag_client.distclean
-	rm -rf _build
+common-test:
+	$(REBAR) ct --cover
 
 cover:
+	$(REBAR) covertool generate
+
+format:
+	$(REBAR) fmt -w
+
+clean:
+	$(REBAR) clean
+
+distclean: clean-build-image
+	rm -rf _build
+
+test: eunit common-test
+
+cover-report:
 	$(REBAR) cover
-
-# CALL_W_CONTAINER
-test: submodules generate
-	$(REBAR) do eunit, ct
-
-SWAGGER_CODEGEN = $(call which, swagger-codegen)
-SWAGGER_SCHEME_BASE_PATH := schemes/swag
-APP_PATH := apps
-SWAGGER_SCHEME_API_PATH := $(SWAGGER_SCHEME_BASE_PATH)/api
-SWAG_SPEC_FILE := swagger.yaml
-
-# Swagger server
-
-SWAG_SERVER_PREFIX := swag_server
-SWAG_SERVER_APP_TARGET := $(APP_PATH)/$(SWAG_SERVER_PREFIX)
-SWAG_SERVER_APP_PATH := $(APP_PATH)/$(SWAG_SERVER_PREFIX)
-
-SWAG_SERVER_APP_TARGET_PAYRES  := $(SWAG_SERVER_APP_PATH)_payres/rebar.config
-SWAG_SERVER_APP_TARGET_PRIVDOC := $(SWAG_SERVER_APP_PATH)_privdoc/rebar.config
-
-$(SWAG_SERVER_APP_PATH)_%/rebar.config: $(SWAGGER_SCHEME_API_PATH)/$*
-	$(SWAGGER_CODEGEN) generate \
-		-i $(SWAGGER_SCHEME_API_PATH)/$*/$(SWAG_SPEC_FILE) \
-		-l erlang-server \
-		-o $(SWAG_SERVER_APP_PATH)_$* \
-		--additional-properties \
-			packageName=$(SWAG_SERVER_PREFIX)_$*
-
-swag_server.generate: $(SWAG_SERVER_APP_TARGET_PAYRES) $(SWAG_SERVER_APP_TARGET_PRIVDOC)
-
-swag_server.distclean: swag_server.distclean_payres swag_server.distclean_privdoc
-
-swag_server.distclean_%:
-	rm -rf $(SWAG_SERVER_APP_PATH)_$*
-
-swag_server.regenerate: swag_server.distclean swag_server.generate
-
-# Swagger client
-
-SWAG_CLIENT_PREFIX := swag_client
-SWAG_CLIENT_APP_TARGET := $(APP_PATH)/$(SWAG_CLIENT_PREFIX)
-SWAG_CLIENT_APP_PATH := $(APP_PATH)/$(SWAG_CLIENT_PREFIX)
-
-SWAG_CLIENT_APP_TARGET_PAYRES  := $(SWAG_CLIENT_APP_PATH)_payres/rebar.config
-SWAG_CLIENT_APP_TARGET_PRIVDOC := $(SWAG_CLIENT_APP_PATH)_privdoc/rebar.config
-
-$(SWAG_CLIENT_APP_PATH)_%/rebar.config: $(SWAGGER_SCHEME_API_PATH)/$*
-	$(SWAGGER_CODEGEN) generate \
-		-i $(SWAGGER_SCHEME_API_PATH)/$*/$(SWAG_SPEC_FILE) \
-		-l erlang-client \
-		-o $(SWAG_CLIENT_APP_PATH)_$* \
-		--additional-properties \
-			packageName=$(SWAG_CLIENT_PREFIX)_$*
-
-swag_client.generate: $(SWAG_CLIENT_APP_TARGET_PAYRES) $(SWAG_CLIENT_APP_TARGET_PRIVDOC)
-
-swag_client.distclean: swag_client.distclean_payres swag_client.distclean_privdoc
-
-swag_client.distclean_%:
-	rm -rf $(SWAG_CLIENT_APP_PATH)_$*
-
-swag_client.regenerate: swag_client.distclean swag_client.generate

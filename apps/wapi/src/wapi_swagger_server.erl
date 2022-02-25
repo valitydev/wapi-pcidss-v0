@@ -37,9 +37,7 @@ get_cowboy_config(AdditionalRoutes, LogicHandlers) ->
         cowboy_router:compile(
             squash_routes(
                 AdditionalRoutes ++
-                    %% swag_server_wallet_router:get_paths(maps:get(wallet, LogicHandlers)) ++
-                    swag_server_payres_router:get_paths(maps:get(payres, LogicHandlers)) ++
-                    swag_server_privdoc_router:get_paths(maps:get(privdoc, LogicHandlers))
+                    swag_server_payres_router:get_paths(maps:get(payres, LogicHandlers))
             )
         ),
     CowboyOpts = #{
@@ -69,23 +67,25 @@ squash_routes(Routes) ->
     ).
 
 mk_operation_id_getter(#{env := Env}) ->
-    %% Ensure that request has host and path required for
-    %% cowboy_router:execute/2.
-    %% NOTE: Be careful when upgrade cowboy in this project
-    %% because cowboy_router:execute/2 call can change.
-    fun
-        (Req = #{host := _Host, path := _Path}) ->
-            case cowboy_router:execute(Req, Env) of
-                {ok, _, #{handler_opts := {_Operations, _LogicHandler, _SwaggerHandlerOpts} = HandlerOpts}} ->
-                    case swag_server_payres_utils:get_operation_id(Req, HandlerOpts) of
-                        undefined ->
-                            #{};
-                        OperationID ->
-                            #{operation_id => OperationID}
-                    end;
-                _ ->
-                    #{}
-            end;
-        (_Req) ->
-            #{}
+    fun(Req) ->
+        get_operation_id(Req, Env)
     end.
+
+%% Ensure that request has host and path required for
+%% cowboy_router:execute/2.
+%% NOTE: Be careful when upgrade cowboy in this project
+%% because cowboy_router:execute/2 call can change.
+get_operation_id(Req = #{host := _Host, path := _Path}, Env) ->
+    case cowboy_router:execute(Req, Env) of
+        {ok, _, #{handler_opts := {_Operations, _LogicHandler, _SwaggerHandlerOpts} = HandlerOpts}} ->
+            case swag_server_payres_utils:get_operation_id(Req, HandlerOpts) of
+                undefined ->
+                    #{};
+                OperationID ->
+                    #{operation_id => OperationID}
+            end;
+        _ ->
+            #{}
+    end;
+get_operation_id(_Req, _Env) ->
+    #{}.

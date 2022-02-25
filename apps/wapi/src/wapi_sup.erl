@@ -38,9 +38,7 @@ init([]) ->
 get_logic_handler_info() ->
     {
         #{
-            %% wallet  => wapi_wallet_handler,
-            payres => wapi_payres_handler,
-            privdoc => wapi_privdoc_handler
+            payres => wapi_payres_handler
         },
         []
     }.
