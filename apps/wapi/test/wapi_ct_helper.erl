@@ -47,8 +47,11 @@
     deadline := iolist() | undefined,
     extra_properties := map()
 }.
+-type sup_or_config() :: config() | pid().
 
 -export_type([config/0]).
+-export_type([app_name/0]).
+-export_type([sup_or_config/0]).
 -export_type([context/0]).
 
 -type protocol() :: ipv4 | ipv6.
