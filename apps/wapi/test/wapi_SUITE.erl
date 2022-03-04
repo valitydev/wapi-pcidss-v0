@@ -70,8 +70,10 @@ end_per_suite(C) ->
 
 -spec init_per_group(group_name(), config()) -> config().
 init_per_group(default, Config) ->
-    {ok, Token} = wapi_ct_helper:issue_token([{[party], write}, {[party], read}], unlimited),
-    [{context, wapi_ct_helper:get_context(Token)} | Config].
+    SupPid = ?config(suite_test_sup, Config),
+    _ = wapi_ct_helper_token_keeper:mock_user_session_token(SupPid),
+    _ = wapi_ct_helper_bouncer:mock_arbiter(wapi_ct_helper_bouncer:judge_always_allowed(), SupPid),
+    [{context, wapi_ct_helper:get_context(?API_TOKEN)} | Config].
 
 -spec end_per_group(group_name(), config()) -> _.
 end_per_group(_Group, C) ->

@@ -27,8 +27,6 @@ init([]) ->
     HealthCheck = enable_health_logging(genlib_app:env(wapi, health_check, #{})),
     AdditionalRoutes = [{'_', [erl_health_handle:get_route(HealthCheck), get_prometheus_route()]}],
     SwaggerSpec = wapi_swagger_server:child_spec(AdditionalRoutes, LogicHandlers),
-    UacConf = get_uac_config(),
-    ok = uac:configure(UacConf),
     {ok, {
         {one_for_all, 0, 1},
         [LechiffreSpec] ++ LogicHandlerSpecs ++ [SwaggerSpec]
@@ -47,12 +45,6 @@ get_logic_handler_info() ->
 enable_health_logging(Check) ->
     EvHandler = {erl_health_event_handler, []},
     maps:map(fun(_, V = {_, _, _}) -> #{runner => V, event_handler => EvHandler} end, Check).
-
-get_uac_config() ->
-    maps:merge(
-        genlib_app:env(wapi, access_conf),
-        #{access => wapi_auth:get_access_config()}
-    ).
 
 -spec get_prometheus_route() -> {iodata(), module(), _Opts :: any()}.
 get_prometheus_route() ->

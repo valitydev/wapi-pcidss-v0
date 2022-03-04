@@ -1,6 +1,7 @@
 -define(STRING, <<"TEST">>).
 -define(INTEGER, 10000).
 -define(TIMESTAMP, <<"2016-03-22T06:12:27Z">>).
+-define(API_TOKEN, <<"letmein">>).
 
 -define(BANK_CARD, ?BANK_CARD(?PAN)).
 
