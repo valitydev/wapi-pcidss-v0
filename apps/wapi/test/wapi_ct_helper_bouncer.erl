@@ -8,6 +8,7 @@
 -export([mock_client/1]).
 -export([mock_arbiter/2]).
 -export([judge_always_allowed/0]).
+-export([judge_always_forbidden/0]).
 
 %%
 
@@ -71,6 +72,10 @@ decode_fragment(#bctx_ContextFragment{type = v1_thrift_binary, content = Content
 -spec judge_always_allowed() -> _.
 judge_always_allowed() ->
     fun(_) -> {ok, ?JUDGEMENT(?ALLOWED)} end.
+
+-spec judge_always_forbidden() -> _.
+judge_always_forbidden() ->
+    fun(_) -> {ok, ?JUDGEMENT(?FORBIDDEN)} end.
 
 combine_fragments(Fragments) ->
     [Fragment | Rest] = maps:values(Fragments),

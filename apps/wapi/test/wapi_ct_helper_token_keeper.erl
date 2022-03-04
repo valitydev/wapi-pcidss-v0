@@ -14,6 +14,7 @@
 -type token_handler() :: fun(('Authenticate' | 'Create', tuple()) -> term() | no_return()).
 
 -export([mock_token/2]).
+-export([mock_invalid_token/1]).
 -export([mock_user_session_token/1]).
 
 -spec mock_token(token_handler(), sup_or_config()) -> list(app_name()).
@@ -45,6 +46,10 @@ start_client(ServiceURLs) ->
     ]).
 
 %%
+
+-spec mock_invalid_token(sup_or_config()) -> list(app_name()).
+mock_invalid_token(SupOrConfig) ->
+    mock_token(fun('Authenticate', {_, _}) -> {throwing, #token_keeper_InvalidToken{}} end, SupOrConfig).
 
 -spec mock_user_session_token(sup_or_config()) -> list(app_name()).
 mock_user_session_token(SupOrConfig) ->

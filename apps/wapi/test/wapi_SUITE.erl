@@ -24,6 +24,8 @@
 -export([store_bank_card_success_test/1]).
 -export([store_bank_card_expired_test/1]).
 -export([store_bank_card_invalid_cardholder_test/1]).
+-export([store_bank_card_auth_failed_test/1]).
+-export([store_bank_card_invalid_token_test/1]).
 -export([get_bank_card_success_test/1]).
 -export([store_pan_only_bank_card_ok_test/1]).
 -export([create_resource_test/1]).
@@ -46,6 +48,8 @@ groups() ->
             store_bank_card_success_test,
             store_bank_card_expired_test,
             store_bank_card_invalid_cardholder_test,
+            store_bank_card_auth_failed_test,
+            store_bank_card_invalid_token_test,
             store_pan_only_bank_card_ok_test,
             get_bank_card_success_test,
             create_resource_test,
@@ -70,9 +74,6 @@ end_per_suite(C) ->
 
 -spec init_per_group(group_name(), config()) -> config().
 init_per_group(default, Config) ->
-    SupPid = ?config(suite_test_sup, Config),
-    _ = wapi_ct_helper_token_keeper:mock_user_session_token(SupPid),
-    _ = wapi_ct_helper_bouncer:mock_arbiter(wapi_ct_helper_bouncer:judge_always_allowed(), SupPid),
     [{context, wapi_ct_helper:get_context(?API_TOKEN)} | Config].
 
 -spec end_per_group(group_name(), config()) -> _.
@@ -81,8 +82,21 @@ end_per_group(_Group, C) ->
     ok.
 
 -spec init_per_testcase(test_case_name(), config()) -> config().
-init_per_testcase(_Name, C) ->
-    [{test_sup, wapi_ct_helper:start_mocked_service_sup(?MODULE)} | C].
+init_per_testcase(store_bank_card_auth_failed_test, Config) ->
+    SupPid = wapi_ct_helper:start_mocked_service_sup(?MODULE),
+    _ = wapi_ct_helper_token_keeper:mock_user_session_token(SupPid),
+    _ = wapi_ct_helper_bouncer:mock_arbiter(wapi_ct_helper_bouncer:judge_always_forbidden(), SupPid),
+    [{test_sup, SupPid} | Config];
+init_per_testcase(store_bank_card_invalid_token_test, Config) ->
+    SupPid = wapi_ct_helper:start_mocked_service_sup(?MODULE),
+    _ = wapi_ct_helper_token_keeper:mock_invalid_token(SupPid),
+    _ = wapi_ct_helper_bouncer:mock_arbiter(wapi_ct_helper_bouncer:judge_always_allowed(), SupPid),
+    [{test_sup, SupPid} | Config];
+init_per_testcase(_Name, Config) ->
+    SupPid = wapi_ct_helper:start_mocked_service_sup(?MODULE),
+    _ = wapi_ct_helper_token_keeper:mock_user_session_token(SupPid),
+    _ = wapi_ct_helper_bouncer:mock_arbiter(wapi_ct_helper_bouncer:judge_always_allowed(), SupPid),
+    [{test_sup, SupPid} | Config].
 
 -spec end_per_testcase(test_case_name(), config()) -> _.
 end_per_testcase(_Name, C) ->
@@ -200,6 +214,16 @@ valid_until_resource_test(C) ->
     {ok, {_Resource, DeadlineToken}} = wapi_crypto:decrypt_resource_token(ResourceToken),
     Deadline = wapi_utils:deadline_from_binary(ValidUntil),
     ?assertEqual(Deadline, DeadlineToken).
+
+-spec store_bank_card_auth_failed_test(config()) -> test_return().
+store_bank_card_auth_failed_test(C) ->
+    CardNumber = <<"4150399999000900">>,
+    {error, {400, #{<<"errorType">> := <<"InvalidToken">>}}} = call_store_bank_card(CardNumber, C).
+
+-spec store_bank_card_invalid_token_test(config()) -> test_return().
+store_bank_card_invalid_token_test(C) ->
+    CardNumber = <<"4150399999000900">>,
+    {error, {400, #{<<"errorType">> := <<"InvalidToken">>}}} = call_store_bank_card(CardNumber, C).
 
 -spec decrypt_resource_v2_test(config()) -> test_return().
 decrypt_resource_v2_test(_C) ->
