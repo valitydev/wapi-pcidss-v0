@@ -26,6 +26,8 @@
 -export([store_bank_card_invalid_cardholder_test/1]).
 -export([store_bank_card_auth_failed_test/1]).
 -export([store_bank_card_invalid_token_test/1]).
+-export([store_bank_card_bin_not_found_test/1]).
+-export([store_bank_card_invalid_card_data_test/1]).
 -export([get_bank_card_success_test/1]).
 -export([store_pan_only_bank_card_ok_test/1]).
 -export([create_resource_test/1]).
@@ -50,6 +52,8 @@ groups() ->
             store_bank_card_invalid_cardholder_test,
             store_bank_card_auth_failed_test,
             store_bank_card_invalid_token_test,
+            store_bank_card_bin_not_found_test,
+            store_bank_card_invalid_card_data_test,
             store_pan_only_bank_card_ok_test,
             get_bank_card_success_test,
             create_resource_test,
@@ -172,6 +176,45 @@ store_bank_card_invalid_cardholder_test(C) ->
         BankCard#{<<"cardHolder">> => <<"ЛЕХА 123"/utf8>>}
     ).
 
+-spec store_bank_card_bin_not_found_test(config()) -> test_return().
+store_bank_card_bin_not_found_test(C) ->
+    _ = wapi_ct_helper:mock_services(
+        [
+            {binbase, fun('Lookup', _) ->
+                {throwing, #binbase_BinNotFound{}}
+            end}
+        ],
+        C
+    ),
+    CardNumber = <<"4150399999000900">>,
+    _ = ?assertMatch(
+        {error, {422, #{<<"message">> := <<"Unsupported card">>}}},
+        wapi_client_payres:store_bank_card(
+            ?config(context, C),
+            ?STORE_BANK_CARD_REQUEST(CardNumber)
+        )
+    ).
+
+-spec store_bank_card_invalid_card_data_test(config()) -> test_return().
+store_bank_card_invalid_card_data_test(C) ->
+    _ = wapi_ct_helper:mock_services(
+        [
+            {binbase, fun('Lookup', _) ->
+                {ok, ?BINBASE_LOOKUP_RESULT(<<"VISA">>)}
+            end},
+            {cds_storage, fun('PutCard', _) -> {throwing, #cds_InvalidCardData{}} end}
+        ],
+        C
+    ),
+    CardNumber = <<"4150399999000900">>,
+    _ = ?assertMatch(
+        {error, {422, #{<<"message">> := <<"Card data is invalid">>}}},
+        wapi_client_payres:store_bank_card(
+            ?config(context, C),
+            ?STORE_BANK_CARD_REQUEST(CardNumber)
+        )
+    ).
+
 -spec store_pan_only_bank_card_ok_test(config()) -> test_return().
 store_pan_only_bank_card_ok_test(C) ->
     CardNumber = <<"4150399999000900">>,
@@ -218,12 +261,18 @@ valid_until_resource_test(C) ->
 -spec store_bank_card_auth_failed_test(config()) -> test_return().
 store_bank_card_auth_failed_test(C) ->
     CardNumber = <<"4150399999000900">>,
-    {error, {400, #{<<"errorType">> := <<"InvalidToken">>}}} = call_store_bank_card(CardNumber, C).
+    _ = ?assertMatch(
+        {error, {400, #{<<"errorType">> := <<"InvalidToken">>}}},
+        call_store_bank_card(CardNumber, C)
+    ).
 
 -spec store_bank_card_invalid_token_test(config()) -> test_return().
 store_bank_card_invalid_token_test(C) ->
     CardNumber = <<"4150399999000900">>,
-    {error, {400, #{<<"errorType">> := <<"InvalidToken">>}}} = call_store_bank_card(CardNumber, C).
+    _ = ?assertMatch(
+        {error, {400, #{<<"errorType">> := <<"InvalidToken">>}}},
+        call_store_bank_card(CardNumber, C)
+    ).
 
 -spec decrypt_resource_v2_test(config()) -> test_return().
 decrypt_resource_v2_test(_C) ->
