@@ -35,12 +35,7 @@ get_service_url(ServiceName) ->
 get_service_modname(binbase) ->
     {binbase_binbase_thrift, 'Binbase'};
 get_service_modname(cds_storage) ->
-    {cds_proto_storage_thrift, 'Storage'};
-get_service_modname(identdoc_storage) ->
-    {identdocstore_identity_document_storage_thrift, 'IdentityDocumentStorage'}.
-
-%% get_service_modname(webhook_manager) ->
-%%     {dmsl_webhooker_thrift, 'WebhookManager'}.
+    {cds_proto_storage_thrift, 'Storage'}.
 
 -spec get_service_deadline(service_name()) -> undefined | woody_deadline:deadline().
 get_service_deadline(ServiceName) ->

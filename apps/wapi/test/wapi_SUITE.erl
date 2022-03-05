@@ -28,6 +28,7 @@
 -export([store_bank_card_invalid_token_test/1]).
 -export([store_bank_card_bin_not_found_test/1]).
 -export([store_bank_card_invalid_card_data_test/1]).
+-export([get_bank_card_not_found_test/1]).
 -export([get_bank_card_success_test/1]).
 -export([store_pan_only_bank_card_ok_test/1]).
 -export([create_resource_test/1]).
@@ -54,6 +55,7 @@ groups() ->
             store_bank_card_invalid_token_test,
             store_bank_card_bin_not_found_test,
             store_bank_card_invalid_card_data_test,
+            get_bank_card_not_found_test,
             store_pan_only_bank_card_ok_test,
             get_bank_card_success_test,
             create_resource_test,
@@ -236,6 +238,13 @@ get_bank_card_success_test(C) ->
         <<"lastDigits">> := LastDigits,
         <<"token">> := Token
     }} = wapi_client_payres:get_bank_card(?config(context, C), Token).
+
+-spec get_bank_card_not_found_test(config()) -> test_return().
+get_bank_card_not_found_test(C) ->
+    _ = ?assertMatch(
+        {error, {404, #{}}},
+        wapi_client_payres:get_bank_card(?config(context, C), <<"NOPE">>)
+    ).
 
 -spec create_resource_test(config()) -> test_return().
 create_resource_test(C) ->
