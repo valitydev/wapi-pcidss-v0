@@ -271,7 +271,7 @@ valid_until_resource_test(C) ->
 store_bank_card_auth_failed_test(C) ->
     CardNumber = <<"4150399999000900">>,
     _ = ?assertMatch(
-        {error, {400, #{<<"errorType">> := <<"InvalidToken">>}}},
+        {error, {401, #{}}},
         call_store_bank_card(CardNumber, C)
     ).
 
@@ -279,7 +279,7 @@ store_bank_card_auth_failed_test(C) ->
 store_bank_card_invalid_token_test(C) ->
     CardNumber = <<"4150399999000900">>,
     _ = ?assertMatch(
-        {error, {400, #{<<"errorType">> := <<"InvalidToken">>}}},
+        {error, {401, #{}}},
         call_store_bank_card(CardNumber, C)
     ).
 
