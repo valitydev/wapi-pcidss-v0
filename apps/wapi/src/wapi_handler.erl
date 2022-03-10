@@ -84,18 +84,12 @@ process_request(Tag, OperationID, Req, SwagContext0, Opts, WoodyContext) ->
                 Process();
             forbidden ->
                 _ = logger:info("Authorization failed"),
-                % @FIXME: Theres is no 401 error in the protocol
-                wapi_handler_utils:reply_ok(400, #{
-                    <<"errorType">> => <<"InvalidToken">>
-                })
+                wapi_handler_utils:reply_ok(401, #{})
         end
     catch
         throw:{token_auth_failed, Reason} ->
             _ = logger:info("API Key authorization failed for ~p due to ~p", [OperationID, Reason]),
-            % @FIXME: Theres is no 401 error in the protocol
-            wapi_handler_utils:reply_ok(400, #{
-                <<"errorType">> => <<"InvalidToken">>
-            });
+            wapi_handler_utils:reply_ok(401, #{});
         throw:{?REQUEST_RESULT, Result} ->
             Result;
         error:{woody_error, {Source, Class, Details}} ->
