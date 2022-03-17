@@ -57,7 +57,8 @@ map_error_type(wrong_length) -> <<"WrongLength">>;
 map_error_type(wrong_size) -> <<"WrongSize">>;
 map_error_type(schema_violated) -> <<"SchemaViolated">>;
 map_error_type(wrong_type) -> <<"WrongType">>;
-map_error_type(wrong_array) -> <<"WrongArray">>.
+map_error_type(wrong_array) -> <<"WrongArray">>;
+map_error_type(wrong_format) -> <<"WrongFormat">>.
 
 -spec authorize_api_key(operation_id(), api_key(), request_context(), handler_opts()) ->
     Result :: false | {true, wapi_auth:preauth_context()}.

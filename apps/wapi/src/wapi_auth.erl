@@ -54,8 +54,7 @@ authorize_token_by_type(bearer, Token, TokenContext, WoodyContext) ->
         {ok, AuthData} ->
             {ok, ?AUTHORIZED(AuthData)};
         {error, TokenKeeperError} ->
-            _ = logger:warning("Token keeper authorization failed: ~p", [TokenKeeperError]),
-            {error, {auth_failed, TokenKeeperError}}
+            {error, TokenKeeperError}
     end.
 
 -spec authorize_operation(

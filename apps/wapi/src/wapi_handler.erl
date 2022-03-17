@@ -60,8 +60,7 @@ handle_request(Tag, OperationID, Req, SwagContext, Opts) ->
         WoodyContext = attach_deadline(Req, create_woody_context(Tag, Req)),
         process_request(Tag, OperationID, Req, SwagContext, Opts, WoodyContext)
     catch
-        throw:({bad_deadline, Header}) ->
-            _ = logger:warning("Operation ~p failed due to invalid deadline header ~p", [OperationID, Header]),
+        throw:({bad_deadline, _Header}) ->
             wapi_handler_utils:reply_ok(400, #{
                 <<"errorType">> => <<"SchemaViolated">>,
                 <<"name">> => <<"X-Request-Deadline">>,
@@ -83,7 +82,6 @@ process_request(Tag, OperationID, Req, SwagContext0, Opts, WoodyContext) ->
                 ok = logger:debug("Operation ~p authorized", [OperationID]),
                 Process();
             forbidden ->
-                _ = logger:info("Authorization failed"),
                 wapi_handler_utils:reply_ok(401)
         end
     catch
@@ -106,7 +104,6 @@ get_handler(payres) -> wapi_payres_handler.
 create_woody_context(Tag, #{'X-Request-ID' := RequestID}) ->
     RpcID = #{trace_id := TraceID} = woody_context:new_rpc_id(genlib:to_binary(RequestID)),
     ok = scoper:add_meta(#{request_id => RequestID, trace_id => TraceID}),
-    _ = logger:debug("Created TraceID for the request"),
     woody_context:new(RpcID, undefined, wapi_woody_client:get_service_deadline(Tag)).
 
 -spec create_handler_context(operation_id(), swagger_context(), woody_context:ctx()) -> context().

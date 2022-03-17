@@ -71,38 +71,12 @@ parse_lifetime(Bin) ->
 
 -spec base64url_to_map(binary()) -> map() | no_return().
 base64url_to_map(Base64) when is_binary(Base64) ->
-    try
-        {ok, Json} = jose_base64url:decode(Base64),
-        jsx:decode(Json, [return_maps])
-    catch
-        Class:Reason ->
-            _ = logger:debug("decoding base64 ~p to map failed with ~p:~p", [Base64, Class, Reason]),
-            erlang:error(badarg)
-    end.
+    {ok, Json} = jose_base64url:decode(Base64),
+    jsx:decode(Json, [return_maps]).
 
 -spec map_to_base64url(map()) -> binary() | no_return().
 map_to_base64url(Map) when is_map(Map) ->
-    try
-        jose_base64url:encode(jsx:encode(Map))
-    catch
-        Class:Reason ->
-            _ = logger:debug("encoding map ~p to base64 failed with ~p:~p", [Map, Class, Reason]),
-            erlang:error(badarg)
-    end.
-
-%% TODO Switch to this sexy code after the upgrade to Erlang 20+
-%%
-%% -spec mask(leading|trailing, non_neg_integer(), char(), binary()) ->
-%%     binary().
-%% mask(Dir = trailing, MaskLen, MaskChar, Str) ->
-%%     mask(Dir, 0, string:length(Str) - MaskLen, MaskChar, Str);
-%% mask(Dir = leading, MaskLen, MaskChar, Str) ->
-%%     mask(Dir, MaskLen, string:length(Str), MaskChar, Str).
-
-%% mask(Dir, KeepStart, KeepLen, MaskChar, Str) ->
-%%     unicode:characters_to_binary(
-%%         string:pad(string:slice(Str, KeepStart, KeepLen), string:length(Str), Dir, MaskChar)
-%%     ).
+    jose_base64url:encode(jsx:encode(Map)).
 
 -spec to_universal_time(Timestamp :: binary()) -> TimestampUTC :: binary().
 to_universal_time(Timestamp) ->
@@ -262,7 +236,7 @@ parse_deadline_test() ->
     Deadline = woody_deadline:from_timeout(3000),
     BinDeadline = woody_deadline:to_binary(Deadline),
     {ok, {_, _}} = parse_deadline(BinDeadline),
-    ?assertEqual({error, bad_deadline}, parse_deadline(<<"2017-04-19T13:56:07.53Z">>)),
+    {error, bad_deadline} = parse_deadline(<<"2017-04-19T13:56:07.53Z">>),
     {ok, {_, _}} = parse_deadline(<<"15s">>),
     {ok, {_, _}} = parse_deadline(<<"15m">>),
     {error, bad_deadline} = parse_deadline(<<"15h">>).
