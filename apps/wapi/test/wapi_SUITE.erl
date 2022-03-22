@@ -42,17 +42,18 @@
 
 -spec all() -> [test_case_name() | {group, group_name()}].
 all() ->
-    [{group, default}].
+    [
+        {group, default_auth},
+        {group, custom_auth}
+    ].
 
 -spec groups() -> [{group_name(), [test_case_name()]}].
 groups() ->
     [
-        {default, [
+        {default_auth, [
             store_bank_card_success_test,
             store_bank_card_expired_test,
             store_bank_card_invalid_cardholder_test,
-            store_bank_card_auth_failed_test,
-            store_bank_card_invalid_token_test,
             store_bank_card_bin_not_found_test,
             store_bank_card_invalid_card_data_test,
             get_bank_card_not_found_test,
@@ -61,6 +62,10 @@ groups() ->
             create_resource_test,
             valid_until_resource_test,
             decrypt_resource_v2_test
+        ]},
+        {custom_auth, [
+            store_bank_card_auth_failed_test,
+            store_bank_card_invalid_token_test
         ]}
     ].
 
@@ -79,30 +84,25 @@ end_per_suite(C) ->
     ok.
 
 -spec init_per_group(group_name(), config()) -> config().
-init_per_group(default, Config) ->
-    [{context, wapi_ct_helper:get_context(?API_TOKEN)} | Config].
+init_per_group(default_auth, Config) ->
+    SupPid = wapi_ct_helper:start_mocked_service_sup(?MODULE),
+    _ = wapi_ct_helper_token_keeper:mock_user_session_token(SupPid),
+    _ = wapi_ct_helper_bouncer:mock_arbiter(wapi_ct_helper_bouncer:judge_always_allowed(), SupPid),
+    [{group_test_sup, SupPid}, {context, wapi_ct_helper:get_context(?API_TOKEN)} | Config];
+init_per_group(_Name, Config) ->
+    SupPid = wapi_ct_helper:start_mocked_service_sup(?MODULE),
+    [{group_test_sup, SupPid}, {context, wapi_ct_helper:get_context(?API_TOKEN)} | Config].
 
 -spec end_per_group(group_name(), config()) -> _.
 end_per_group(_Group, C) ->
+    _ = wapi_ct_helper:stop_mocked_service_sup(?config(group_test_sup, C)),
     _ = proplists:delete(context, C),
     ok.
 
 -spec init_per_testcase(test_case_name(), config()) -> config().
-init_per_testcase(store_bank_card_auth_failed_test, Config) ->
+init_per_testcase(_Name, C) ->
     SupPid = wapi_ct_helper:start_mocked_service_sup(?MODULE),
-    _ = wapi_ct_helper_token_keeper:mock_user_session_token(SupPid),
-    _ = wapi_ct_helper_bouncer:mock_arbiter(wapi_ct_helper_bouncer:judge_always_forbidden(), SupPid),
-    [{test_sup, SupPid} | Config];
-init_per_testcase(store_bank_card_invalid_token_test, Config) ->
-    SupPid = wapi_ct_helper:start_mocked_service_sup(?MODULE),
-    _ = wapi_ct_helper_token_keeper:mock_invalid_token(SupPid),
-    _ = wapi_ct_helper_bouncer:mock_arbiter(wapi_ct_helper_bouncer:judge_always_allowed(), SupPid),
-    [{test_sup, SupPid} | Config];
-init_per_testcase(_Name, Config) ->
-    SupPid = wapi_ct_helper:start_mocked_service_sup(?MODULE),
-    _ = wapi_ct_helper_token_keeper:mock_user_session_token(SupPid),
-    _ = wapi_ct_helper_bouncer:mock_arbiter(wapi_ct_helper_bouncer:judge_always_allowed(), SupPid),
-    [{test_sup, SupPid} | Config].
+    [{test_sup, SupPid} | C].
 
 -spec end_per_testcase(test_case_name(), config()) -> _.
 end_per_testcase(_Name, C) ->
@@ -269,6 +269,8 @@ valid_until_resource_test(C) ->
 
 -spec store_bank_card_auth_failed_test(config()) -> test_return().
 store_bank_card_auth_failed_test(C) ->
+    _ = wapi_ct_helper_token_keeper:mock_user_session_token(?config(test_sup, C)),
+    _ = wapi_ct_helper_bouncer:mock_arbiter(wapi_ct_helper_bouncer:judge_always_forbidden(), ?config(test_sup, C)),
     CardNumber = <<"4150399999000900">>,
     _ = ?assertMatch(
         {error, {401, #{}}},
@@ -277,6 +279,8 @@ store_bank_card_auth_failed_test(C) ->
 
 -spec store_bank_card_invalid_token_test(config()) -> test_return().
 store_bank_card_invalid_token_test(C) ->
+    _ = wapi_ct_helper_token_keeper:mock_invalid_token(?config(test_sup, C)),
+    _ = wapi_ct_helper_bouncer:mock_arbiter(wapi_ct_helper_bouncer:judge_always_allowed(), ?config(test_sup, C)),
     CardNumber = <<"4150399999000900">>,
     _ = ?assertMatch(
         {error, {401, #{}}},

@@ -171,7 +171,7 @@ start_mocked_service_sup(Module) ->
 
 -spec stop_mocked_service_sup(pid()) -> _.
 stop_mocked_service_sup(SupPid) ->
-    exit(SupPid, shutdown).
+    proc_lib:stop(SupPid, shutdown, 1000).
 
 -spec get_context(binary()) -> wapi_client_lib:context().
 get_context(Token) ->
