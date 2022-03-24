@@ -24,6 +24,11 @@
 -export([store_bank_card_success_test/1]).
 -export([store_bank_card_expired_test/1]).
 -export([store_bank_card_invalid_cardholder_test/1]).
+-export([store_bank_card_auth_failed_test/1]).
+-export([store_bank_card_invalid_token_test/1]).
+-export([store_bank_card_bin_not_found_test/1]).
+-export([store_bank_card_invalid_card_data_test/1]).
+-export([get_bank_card_not_found_test/1]).
 -export([get_bank_card_success_test/1]).
 -export([store_pan_only_bank_card_ok_test/1]).
 -export([create_resource_test/1]).
@@ -37,20 +42,30 @@
 
 -spec all() -> [test_case_name() | {group, group_name()}].
 all() ->
-    [{group, default}].
+    [
+        {group, default_auth},
+        {group, custom_auth}
+    ].
 
 -spec groups() -> [{group_name(), [test_case_name()]}].
 groups() ->
     [
-        {default, [
+        {default_auth, [
             store_bank_card_success_test,
             store_bank_card_expired_test,
             store_bank_card_invalid_cardholder_test,
+            store_bank_card_bin_not_found_test,
+            store_bank_card_invalid_card_data_test,
+            get_bank_card_not_found_test,
             store_pan_only_bank_card_ok_test,
             get_bank_card_success_test,
             create_resource_test,
             valid_until_resource_test,
             decrypt_resource_v2_test
+        ]},
+        {custom_auth, [
+            store_bank_card_auth_failed_test,
+            store_bank_card_invalid_token_test
         ]}
     ].
 
@@ -69,18 +84,25 @@ end_per_suite(C) ->
     ok.
 
 -spec init_per_group(group_name(), config()) -> config().
-init_per_group(default, Config) ->
-    {ok, Token} = wapi_ct_helper:issue_token([{[party], write}, {[party], read}], unlimited),
-    [{context, wapi_ct_helper:get_context(Token)} | Config].
+init_per_group(default_auth, Config) ->
+    SupPid = wapi_ct_helper:start_mocked_service_sup(?MODULE),
+    _ = wapi_ct_helper_token_keeper:mock_user_session_token(SupPid),
+    _ = wapi_ct_helper_bouncer:mock_arbiter(wapi_ct_helper_bouncer:judge_always_allowed(), SupPid),
+    [{group_test_sup, SupPid}, {context, wapi_ct_helper:get_context(?API_TOKEN)} | Config];
+init_per_group(_Name, Config) ->
+    SupPid = wapi_ct_helper:start_mocked_service_sup(?MODULE),
+    [{group_test_sup, SupPid}, {context, wapi_ct_helper:get_context(?API_TOKEN)} | Config].
 
 -spec end_per_group(group_name(), config()) -> _.
 end_per_group(_Group, C) ->
+    _ = wapi_ct_helper:stop_mocked_service_sup(?config(group_test_sup, C)),
     _ = proplists:delete(context, C),
     ok.
 
 -spec init_per_testcase(test_case_name(), config()) -> config().
 init_per_testcase(_Name, C) ->
-    [{test_sup, wapi_ct_helper:start_mocked_service_sup(?MODULE)} | C].
+    SupPid = wapi_ct_helper:start_mocked_service_sup(?MODULE),
+    [{test_sup, SupPid} | C].
 
 -spec end_per_testcase(test_case_name(), config()) -> _.
 end_per_testcase(_Name, C) ->
@@ -156,6 +178,45 @@ store_bank_card_invalid_cardholder_test(C) ->
         BankCard#{<<"cardHolder">> => <<"ЛЕХА 123"/utf8>>}
     ).
 
+-spec store_bank_card_bin_not_found_test(config()) -> test_return().
+store_bank_card_bin_not_found_test(C) ->
+    _ = wapi_ct_helper:mock_services(
+        [
+            {binbase, fun('Lookup', _) ->
+                {throwing, #binbase_BinNotFound{}}
+            end}
+        ],
+        C
+    ),
+    CardNumber = <<"4150399999000900">>,
+    _ = ?assertMatch(
+        {error, {422, #{<<"message">> := <<"Unsupported card">>}}},
+        wapi_client_payres:store_bank_card(
+            ?config(context, C),
+            ?STORE_BANK_CARD_REQUEST(CardNumber)
+        )
+    ).
+
+-spec store_bank_card_invalid_card_data_test(config()) -> test_return().
+store_bank_card_invalid_card_data_test(C) ->
+    _ = wapi_ct_helper:mock_services(
+        [
+            {binbase, fun('Lookup', _) ->
+                {ok, ?BINBASE_LOOKUP_RESULT(<<"VISA">>)}
+            end},
+            {cds_storage, fun('PutCard', _) -> {throwing, #cds_InvalidCardData{}} end}
+        ],
+        C
+    ),
+    CardNumber = <<"4150399999000900">>,
+    _ = ?assertMatch(
+        {error, {422, #{<<"message">> := <<"Card data is invalid">>}}},
+        wapi_client_payres:store_bank_card(
+            ?config(context, C),
+            ?STORE_BANK_CARD_REQUEST(CardNumber)
+        )
+    ).
+
 -spec store_pan_only_bank_card_ok_test(config()) -> test_return().
 store_pan_only_bank_card_ok_test(C) ->
     CardNumber = <<"4150399999000900">>,
@@ -178,6 +239,13 @@ get_bank_card_success_test(C) ->
         <<"token">> := Token
     }} = wapi_client_payres:get_bank_card(?config(context, C), Token).
 
+-spec get_bank_card_not_found_test(config()) -> test_return().
+get_bank_card_not_found_test(C) ->
+    _ = ?assertMatch(
+        {error, {404, #{}}},
+        wapi_client_payres:get_bank_card(?config(context, C), <<"NOPE">>)
+    ).
+
 -spec create_resource_test(config()) -> test_return().
 create_resource_test(C) ->
     CardNumber = <<"4150399999000900">>,
@@ -198,6 +266,26 @@ valid_until_resource_test(C) ->
     {ok, {_Resource, DeadlineToken}} = wapi_crypto:decrypt_resource_token(ResourceToken),
     Deadline = wapi_utils:deadline_from_binary(ValidUntil),
     ?assertEqual(Deadline, DeadlineToken).
+
+-spec store_bank_card_auth_failed_test(config()) -> test_return().
+store_bank_card_auth_failed_test(C) ->
+    _ = wapi_ct_helper_token_keeper:mock_user_session_token(?config(test_sup, C)),
+    _ = wapi_ct_helper_bouncer:mock_arbiter(wapi_ct_helper_bouncer:judge_always_forbidden(), ?config(test_sup, C)),
+    CardNumber = <<"4150399999000900">>,
+    _ = ?assertMatch(
+        {error, {401, #{}}},
+        call_store_bank_card(CardNumber, C)
+    ).
+
+-spec store_bank_card_invalid_token_test(config()) -> test_return().
+store_bank_card_invalid_token_test(C) ->
+    _ = wapi_ct_helper_token_keeper:mock_invalid_token(?config(test_sup, C)),
+    _ = wapi_ct_helper_bouncer:mock_arbiter(wapi_ct_helper_bouncer:judge_always_allowed(), ?config(test_sup, C)),
+    CardNumber = <<"4150399999000900">>,
+    _ = ?assertMatch(
+        {error, {401, #{}}},
+        call_store_bank_card(CardNumber, C)
+    ).
 
 -spec decrypt_resource_v2_test(config()) -> test_return().
 decrypt_resource_v2_test(_C) ->

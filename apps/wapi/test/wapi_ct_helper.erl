@@ -2,6 +2,8 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("wapi_dummy_data.hrl").
+-include_lib("wapi_token_keeper_data.hrl").
+-include_lib("wapi_bouncer_data.hrl").
 -include_lib("damsel/include/dmsl_domain_config_thrift.hrl").
 
 -export([init_suite/2]).
@@ -10,8 +12,6 @@
 -export([start_app/2]).
 -export([start_wapi/1]).
 -export([start_wapi/2]).
--export([issue_token/2]).
--export([issue_token/3]).
 -export([get_context/1]).
 -export([get_context/2]).
 -export([get_keysource/2]).
@@ -47,8 +47,11 @@
     deadline := iolist() | undefined,
     extra_properties := map()
 }.
+-type sup_or_config() :: config() | pid().
 
 -export_type([config/0]).
+-export_type([app_name/0]).
+-export_type([sup_or_config/0]).
 -export_type([context/0]).
 
 -type protocol() :: ipv4 | ipv6.
@@ -101,7 +104,8 @@ init_suite(Module, Config, WapiEnv) ->
     ),
     Apps2 =
         start_app(dmt_client, [{max_cache_size, #{}}, {service_urls, ServiceURLs}, {cache_update_interval, 50000}]) ++
-            start_wapi(Config, WapiEnv),
+            start_wapi(Config, WapiEnv) ++
+            [wapi_ct_helper_bouncer:mock_client(SupPid)],
     [{apps, lists:reverse(Apps2 ++ Apps1)}, {suite_test_sup, SupPid} | Config].
 
 -spec start_app(app_name()) -> [app_name()].
@@ -135,15 +139,7 @@ start_wapi(Config, ExtraEnv) ->
                 {port, ?WAPI_PORT},
                 {realm, <<"external">>},
                 {public_endpoint, <<"localhost:8080">>},
-                {access_conf, #{
-                    jwt => #{
-                        keyset => #{
-                            wapi => #{
-                                source => {pem_file, get_keysource("keys/local/private.pem", Config)}
-                            }
-                        }
-                    }
-                }},
+                {bouncer_ruleset_id, ?TEST_RULESET_ID},
                 {lechiffre_opts, #{
                     encryption_source => JwkPublSource,
                     decryption_sources => [JwkPrivSource]
@@ -151,7 +147,15 @@ start_wapi(Config, ExtraEnv) ->
                 {validation, #{
                     env => #{now => {{2020, 02, 02}, {0, 0, 0}}}
                 }},
-                {payment_tool_token_lifetime, <<"1024s">>}
+                {payment_tool_token_lifetime, <<"1024s">>},
+                {auth_config, #{
+                    metadata_mappings => #{
+                        party_id => ?TK_META_PARTY_ID,
+                        token_consumer => ?TK_META_TOKEN_CONSUMER,
+                        user_id => ?TK_META_USER_ID,
+                        user_email => ?TK_META_USER_EMAIL
+                    }
+                }}
             ],
     start_app(wapi, WapiEnv).
 
@@ -167,32 +171,7 @@ start_mocked_service_sup(Module) ->
 
 -spec stop_mocked_service_sup(pid()) -> _.
 stop_mocked_service_sup(SupPid) ->
-    exit(SupPid, shutdown).
-
--spec issue_token(_, _) ->
-    {ok, binary()}
-    | {error, nonexistent_signee}.
-issue_token(ACL, LifeTime) ->
-    issue_token(?STRING, ACL, LifeTime).
-
--spec issue_token(_, _, _) ->
-    {ok, binary()}
-    | {error, nonexistent_signee}.
-issue_token(PartyID, ACL, LifeTime) ->
-    DomainRoles = #{
-        <<"common-api">> => uac_acl:from_list(ACL)
-    },
-    Claims = #{
-        ?STRING => ?STRING,
-        <<"exp">> => LifeTime,
-        <<"resource_access">> => DomainRoles
-    },
-    uac_authorizer_jwt:issue(
-        wapi_utils:get_unique_id(),
-        PartyID,
-        Claims,
-        wapi
-    ).
+    proc_lib:stop(SupPid, shutdown, 1000).
 
 -spec get_context(binary()) -> wapi_client_lib:context().
 get_context(Token) ->
@@ -214,18 +193,17 @@ mock_services_(Services, Config) when is_list(Config) ->
     mock_services_(Services, ?config(test_sup, Config));
 mock_services_(Services, SupPid) when is_pid(SupPid) ->
     Name = lists:map(fun get_service_name/1, Services),
-    Port = get_random_port(),
     {ok, IP} = inet:parse_address(?WAPI_IP),
-    ChildSpec = woody_server:child_spec(
-        {dummy, Name},
-        #{
-            ip => IP,
-            port => Port,
-            event_handler => {scoper_woody_event_handler, #{}},
-            handlers => lists:map(fun mock_service_handler/1, Services)
-        }
-    ),
+    ServerID = {dummy, Name},
+    WoodyOpts = #{
+        ip => IP,
+        port => 0,
+        event_handler => {scoper_woody_event_handler, #{}},
+        handlers => lists:map(fun mock_service_handler/1, Services)
+    },
+    ChildSpec = woody_server:child_spec(ServerID, WoodyOpts),
     {ok, _} = supervisor:start_child(SupPid, ChildSpec),
+    {_IP, Port} = woody_server:get_addr(ServerID, WoodyOpts),
     lists:foldl(
         fun(Service, Acc) ->
             ServiceName = get_service_name(Service),
@@ -247,9 +225,6 @@ mock_service_handler({ServiceName, WoodyService, Fun}) ->
 
 mock_service_handler(ServiceName, WoodyService, Fun) ->
     {make_path(ServiceName), {WoodyService, {wapi_dummy_service, #{function => Fun}}}}.
-
-get_random_port() ->
-    rand:uniform(32768) + 32767.
 
 make_url(ServiceName, Port) ->
     iolist_to_binary(["http://", ?WAPI_HOST_NAME, ":", integer_to_list(Port), make_path(ServiceName)]).

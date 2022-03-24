@@ -1,123 +1,99 @@
 -module(wapi_auth).
 
--export([get_access_config/0]).
+-define(APP, wapi).
+
+-export([get_user_id/1]).
+
+-export([preauthorize_api_key/1]).
 -export([authorize_api_key/3]).
--export([issue_access_token/2]).
--export([issue_access_token/3]).
+-export([authorize_operation/2]).
 
--export([get_consumer/1]).
+-export_type([resolution/0]).
+-export_type([preauth_context/0]).
+-export_type([auth_context/0]).
 
--export([get_resource_hierarchy/0]).
--export([get_operation_access/2]).
+%%
 
--define(DEFAULT_ACCESS_TOKEN_LIFETIME, 259200).
--define(DOMAIN, <<"common-api">>).
+-type token_type() :: bearer.
+-type auth_context() :: {authorized, token_keeper_client:auth_data()}.
+-type preauth_context() :: {unauthorized, {token_type(), token_keeper_client:token()}}.
 
--define(SIGNEE, wapi).
+-type resolution() ::
+    allowed
+    | forbidden
+    | {forbidden, _Reason}.
 
--type context() :: uac:context().
--type claims() :: uac:claims().
--type consumer() :: client | merchant | provider.
--type request_data() :: #{atom() | binary() => term()}.
+-define(AUTHORIZED(Ctx), {authorized, Ctx}).
+-define(UNAUTHORIZED(Ctx), {unauthorized, Ctx}).
 
--export_type([context/0]).
--export_type([claims/0]).
--export_type([consumer/0]).
+%%
 
--type operation_id() :: wapi_handler:operation_id().
+-spec get_user_id(auth_context()) -> binary() | undefined.
+get_user_id(?AUTHORIZED(#{metadata := Metadata})) ->
+    get_metadata(get_metadata_mapped_key(user_id), Metadata).
 
--type api_key() ::
-    swag_server_payres:api_key().
+%%
 
--type handler_opts() :: wapi_handler:opts().
-
--spec authorize_api_key(operation_id(), api_key(), handler_opts()) ->
-    %% | false.
-    {true, context()}.
-authorize_api_key(OperationID, ApiKey, _Opts) ->
-    case uac:authorize_api_key(ApiKey, get_verification_options()) of
-        {ok, Context} ->
-            {true, Context};
+-spec preauthorize_api_key(swag_server_payres:api_key()) -> {ok, preauth_context()} | {error, _Reason}.
+preauthorize_api_key(ApiKey) ->
+    case parse_api_key(ApiKey) of
+        {ok, Token} ->
+            {ok, ?UNAUTHORIZED(Token)};
         {error, Error} ->
-            _ = log_auth_error(OperationID, Error),
-            false
+            {error, Error}
     end.
 
-log_auth_error(OperationID, Error) ->
-    logger:info("API Key authorization failed for ~p due to ~p", [OperationID, Error]).
+-spec authorize_api_key(preauth_context(), token_keeper_client:token_context(), woody_context:ctx()) ->
+    {ok, auth_context()} | {error, _Reason}.
+authorize_api_key(?UNAUTHORIZED({TokenType, Token}), TokenContext, WoodyContext) ->
+    authorize_token_by_type(TokenType, Token, TokenContext, WoodyContext).
+
+authorize_token_by_type(bearer, Token, TokenContext, WoodyContext) ->
+    Authenticator = token_keeper_client:authenticator(WoodyContext),
+    case token_keeper_authenticator:authenticate(Token, TokenContext, Authenticator) of
+        {ok, AuthData} ->
+            {ok, ?AUTHORIZED(AuthData)};
+        {error, TokenKeeperError} ->
+            {error, TokenKeeperError}
+    end.
+
+-spec authorize_operation(
+    Prototypes :: wapi_bouncer_context:prototypes(),
+    Context :: wapi_handler:context()
+) -> resolution().
+authorize_operation(Prototypes, Context) ->
+    AuthContext = extract_auth_context(Context),
+    #{swagger_context := SwagContext, woody_context := WoodyContext} = Context,
+    Fragments = wapi_bouncer:gather_context_fragments(
+        get_token_keeper_fragment(AuthContext),
+        get_user_id(AuthContext),
+        SwagContext,
+        WoodyContext
+    ),
+    Fragments1 = wapi_bouncer_context:build(Prototypes, Fragments),
+    wapi_bouncer:judge(Fragments1, WoodyContext).
 
 %%
 
--type token_spec() ::
-    {destinations, DestinationID :: binary()}.
+get_token_keeper_fragment(?AUTHORIZED(#{context := Context})) ->
+    Context.
 
--spec issue_access_token(wapi_handler_utils:party_id(), token_spec()) -> uac_authorizer_jwt:token().
-issue_access_token(PartyID, TokenSpec) ->
-    issue_access_token(PartyID, TokenSpec, #{}).
+extract_auth_context(#{swagger_context := #{auth_context := AuthContext}}) ->
+    AuthContext.
 
--spec issue_access_token(wapi_handler_utils:party_id(), token_spec(), map()) -> uac_authorizer_jwt:token().
-issue_access_token(PartyID, TokenSpec, ExtraProperties) ->
-    Claims0 = resolve_token_spec(TokenSpec),
-    Claims = maps:merge(ExtraProperties, Claims0),
-    wapi_utils:unwrap(
-        uac_authorizer_jwt:issue(
-            wapi_utils:get_unique_id(),
-            PartyID,
-            Claims,
-            ?SIGNEE
-        )
-    ).
-
--spec resolve_token_spec(token_spec()) -> claims().
-resolve_token_spec({destinations, DestinationId}) ->
-    DomainRoles = #{
-        <<"common-api">> => uac_acl:from_list([
-            {[party, {destinations, DestinationId}], read},
-            {[party, {destinations, DestinationId}], write}
-        ])
-    },
-    Expiration = {lifetime, ?DEFAULT_ACCESS_TOKEN_LIFETIME},
-    #{
-        <<"exp">> => Expiration,
-        <<"resource_access">> => DomainRoles
-    }.
+parse_api_key(<<"Bearer ", Token/binary>>) ->
+    {ok, {bearer, Token}};
+parse_api_key(_) ->
+    {error, unsupported_auth_scheme}.
 
 %%
 
--spec get_operation_access(operation_id(), request_data()) -> [{uac_acl:scope(), uac_acl:permission()}].
-get_operation_access('StoreBankCard', _) ->
-    [{[party], write}];
-get_operation_access('GetBankCard', _) ->
-    [{[party], read}];
-get_operation_access('StorePrivateDocument', _) ->
-    [{[party], write}].
+get_metadata(Key, Metadata) ->
+    maps:get(Key, Metadata, undefined).
 
--spec get_resource_hierarchy() -> #{atom() => map()}.
-%% TODO add some sence in here
-get_resource_hierarchy() ->
-    #{
-        party => #{
-            wallets => #{},
-            destinations => #{}
-        }
-    }.
+get_metadata_mapped_key(Key) ->
+    maps:get(Key, get_meta_mappings()).
 
--spec get_consumer(claims()) -> consumer().
-get_consumer(Claims) ->
-    case maps:get(<<"cons">>, Claims, <<"merchant">>) of
-        <<"merchant">> -> merchant;
-        <<"client">> -> client;
-        <<"provider">> -> provider
-    end.
-
--spec get_access_config() -> map().
-get_access_config() ->
-    #{
-        domain_name => ?DOMAIN,
-        resource_hierarchy => get_resource_hierarchy()
-    }.
-
-get_verification_options() ->
-    #{
-        domains_to_decode => [?DOMAIN]
-    }.
+get_meta_mappings() ->
+    AuthConfig = genlib_app:env(?APP, auth_config),
+    maps:get(metadata_mappings, AuthConfig).

@@ -24,8 +24,9 @@
         erl_health,
         damsel,
         binbase_proto,
-        uac,
-        bankcard_validator
+        bankcard_validator,
+        bouncer_client,
+        token_keeper_client
     ]},
     {env, []}
 ]}.

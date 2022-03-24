@@ -4,25 +4,25 @@
 -include_lib("cds_proto/include/cds_proto_storage_thrift.hrl").
 
 -behaviour(swag_server_payres_logic_handler).
--behaviour(wapi_handler).
-
 %% swag_server_payres_logic_handler callbacks
 -export([map_error/2]).
 -export([authorize_api_key/4]).
 -export([handle_request/4]).
 
+-behaviour(wapi_handler).
 %% wapi_handler callbacks
--export([process_request/4]).
+-export([prepare/4]).
 
 %% Types
 
 -type req_data() :: wapi_handler:req_data().
+-type request_state() :: wapi_handler:request_state().
 -type handler_context() :: wapi_handler:context().
 -type request_result() :: wapi_handler:request_result().
 -type operation_id() :: swag_server_payres:operation_id().
 -type api_key() :: swag_server_payres:api_key().
 -type request_context() :: swag_server_payres:request_context().
--type handler_opts() :: swag_server_payres:handler_opts(term()).
+-type handler_opts() :: swag_server_payres:handler_opts(_).
 
 %% Macro
 
@@ -57,38 +57,59 @@ map_error_type(wrong_length) -> <<"WrongLength">>;
 map_error_type(wrong_size) -> <<"WrongSize">>;
 map_error_type(schema_violated) -> <<"SchemaViolated">>;
 map_error_type(wrong_type) -> <<"WrongType">>;
-map_error_type(wrong_array) -> <<"WrongArray">>.
+map_error_type(wrong_array) -> <<"WrongArray">>;
+map_error_type(wrong_format) -> <<"WrongFormat">>.
 
 -spec authorize_api_key(operation_id(), api_key(), request_context(), handler_opts()) ->
-    Result :: false | {true, wapi_auth:context()}.
-authorize_api_key(OperationID, ApiKey, _Context, Opts) ->
-    scope(OperationID, fun() ->
-        wapi_auth:authorize_api_key(OperationID, ApiKey, Opts)
-    end).
+    Result :: false | {true, wapi_auth:preauth_context()}.
+authorize_api_key(OperationID, ApiKey, _Context, _Opts) ->
+    %% Since we require the request id field to create a woody context for our trip to token_keeper
+    %% it seems it is no longer possible to perform any authorization in this method.
+    %% To gain this ability back be would need to rewrite the swagger generator to perform its
+    %% request validation checks before this stage.
+    %% But since a decent chunk of authorization logic is already defined in the handler function
+    %% it is probably easier to move it there in its entirety.
+    ok = scoper:add_scope('swag.server', #{api => wallet, operation_id => OperationID}),
+    case wapi_auth:preauthorize_api_key(ApiKey) of
+        {ok, Context} ->
+            {true, Context};
+        {error, Error} ->
+            _ = logger:info("API Key preauthorization failed for ~p due to ~p", [OperationID, Error]),
+            false
+    end.
 
 -spec handle_request(operation_id(), req_data(), request_context(), handler_opts()) -> request_result().
 handle_request(OperationID, Req, SwagContext, Opts) ->
-    scope(OperationID, fun() ->
-        wapi_handler:handle_request(OperationID, Req, SwagContext, ?MODULE, Opts)
-    end).
+    wapi_handler:handle_request(payres, OperationID, Req, SwagContext, Opts).
 
-scope(OperationID, Fun) ->
-    scoper:scope(swagger, #{api => payres, operation_id => OperationID}, Fun).
-
--spec process_request(operation_id(), req_data(), handler_context(), handler_opts()) -> request_result().
-process_request('StoreBankCard', #{'BankCard' := CardData}, Context, _Opts) ->
-    CVV = maps:get(<<"cvv">>, CardData, undefined),
-    {BankCard, AuthData} = process_card_data(CardData, CVV, Context),
-    wapi_handler_utils:reply_ok(201, decode_bank_card(BankCard, AuthData));
-process_request('GetBankCard', #{'token' := Token}, _Context, _Opts) ->
-    try
-        wapi_handler_utils:reply_ok(200, decrypt_token(Token))
-    catch
-        error:badarg ->
-            wapi_handler_utils:reply_ok(404)
-    end.
+-spec prepare(operation_id(), req_data(), handler_context(), handler_opts()) -> {ok, request_state()} | no_return().
+prepare(OperationID = 'StoreBankCard', #{'BankCard' := CardData}, Context, _Opts) ->
+    Authorize = mk_auth_function(OperationID, Context),
+    Process = fun() ->
+        CVV = maps:get(<<"cvv">>, CardData, undefined),
+        {BankCard, AuthData} = process_card_data(CardData, CVV, Context),
+        wapi_handler_utils:reply_ok(201, decode_bank_card(BankCard, AuthData))
+    end,
+    {ok, #{authorize => Authorize, process => Process}};
+prepare(OperationID = 'GetBankCard', #{'token' := Token}, Context, _Opts) ->
+    Authorize = mk_auth_function(OperationID, Context),
+    Process = fun() ->
+        try
+            wapi_handler_utils:reply_ok(200, decrypt_token(Token))
+        catch
+            error:badarg ->
+                wapi_handler_utils:reply_ok(404)
+        end
+    end,
+    {ok, #{authorize => Authorize, process => Process}}.
 
 %% Internal functions
+
+mk_auth_function(OperationID, Context) ->
+    fun() ->
+        Prototypes = [{operation, #{id => OperationID}}],
+        {ok, wapi_auth:authorize_operation(Prototypes, Context)}
+    end.
 
 -spec resource_token_lifetime() -> timeout().
 resource_token_lifetime() ->
