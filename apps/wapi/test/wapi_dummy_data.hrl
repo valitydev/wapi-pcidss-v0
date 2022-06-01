@@ -6,9 +6,7 @@
 -define(BANK_CARD, ?BANK_CARD(?PAN)).
 
 -define(BANK_CARD(CardNumber), #cds_BankCard{
-    token = ?STRING,
-    last_digits = ?LAST_DIGITS(CardNumber),
-    bin = ?BIN(CardNumber)
+    token = ?STRING
 }).
 
 -define(BINBASE_LOOKUP_RESULT, ?BINBASE_LOOKUP_RESULT(<<"MASTERCARD">>)).

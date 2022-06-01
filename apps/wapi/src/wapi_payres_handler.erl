@@ -236,23 +236,29 @@ make_random_id() ->
 
 construct_bank_card(BankCard, CardData, BankInfo) ->
     ExpDate = parse_exp_date(genlib_map:get(<<"expDate">>, CardData)),
-    CardNumber = genlib:to_binary(genlib_map:get(<<"cardNumber">>, CardData)),
-    Bin = BankCard#cds_BankCard.bin,
-    LastDigits = BankCard#cds_BankCard.last_digits,
+    CardNumber = genlib:to_binary(maps:get(<<"cardNumber">>, CardData)),
     PaymentSystem = wapi_bankcard:payment_system(BankInfo),
     genlib_map:compact(#{
         token => BankCard#cds_BankCard.token,
         pan_length => byte_size(CardNumber),
-        bin => Bin,
-        last_digits => LastDigits,
+        bin => get_first6(CardNumber),
+        last_digits => get_last4(CardNumber),
         payment_system => PaymentSystem,
         payment_system_deprecated => wapi_bankcard:decode_payment_system(PaymentSystem),
         exp_date => ExpDate,
         cardholder_name => genlib_map:get(<<"cardHolder">>, CardData)
     }).
 
+%% NOTE
+%% Seems to fit within PCIDSS requirments for all PAN lengths
+get_first6(CardNumber) ->
+    binary:part(CardNumber, {0, 6}).
+
+get_last4(CardNumber) ->
+    binary:part(CardNumber, {byte_size(CardNumber), -4}).
+
 to_thrift(card_data, Data) ->
-    CardNumber = genlib:to_binary(genlib_map:get(<<"cardNumber">>, Data)),
+    CardNumber = genlib:to_binary(maps:get(<<"cardNumber">>, Data)),
     ExpDate = parse_exp_date(genlib_map:get(<<"expDate">>, Data)),
     Cardholder = genlib_map:get(<<"cardHolder">>, Data),
     {
