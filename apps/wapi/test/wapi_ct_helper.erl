@@ -137,7 +137,6 @@ start_wapi(Config, ExtraEnv) ->
             [
                 {ip, ?WAPI_IP},
                 {port, ?WAPI_PORT},
-                {realm, <<"external">>},
                 {public_endpoint, <<"localhost:8080">>},
                 {bouncer_ruleset_id, ?TEST_RULESET_ID},
                 {lechiffre_opts, #{
