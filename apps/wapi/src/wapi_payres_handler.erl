@@ -244,7 +244,6 @@ construct_bank_card(BankCard, CardData, BankInfo) ->
         bin => get_first6(CardNumber),
         last_digits => get_last4(CardNumber),
         payment_system => PaymentSystem,
-        payment_system_deprecated => wapi_bankcard:decode_payment_system(PaymentSystem),
         exp_date => ExpDate,
         cardholder_name => genlib_map:get(<<"cardHolder">>, CardData)
     }).
