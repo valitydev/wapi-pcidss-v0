@@ -33,7 +33,6 @@
 -export([store_pan_only_bank_card_ok_test/1]).
 -export([create_resource_test/1]).
 -export([valid_until_resource_test/1]).
--export([decrypt_resource_v2_test/1]).
 
 -type config() :: wapi_ct_helper:config().
 -type test_case_name() :: atom().
@@ -60,8 +59,7 @@ groups() ->
             store_pan_only_bank_card_ok_test,
             get_bank_card_success_test,
             create_resource_test,
-            valid_until_resource_test,
-            decrypt_resource_v2_test
+            valid_until_resource_test
         ]},
         {custom_auth, [
             store_bank_card_auth_failed_test,
@@ -286,29 +284,6 @@ store_bank_card_invalid_token_test(C) ->
         {error, {401, #{}}},
         call_store_bank_card(CardNumber, C)
     ).
-
--spec decrypt_resource_v2_test(config()) -> test_return().
-decrypt_resource_v2_test(_C) ->
-    ResourceToken = <<
-        "v2.eyJhbGciOiJFQ0RILUVTIiwiZW5jIjoiQTEyOEdDTSIsImVwayI6eyJhbGciOiJFQ0RILUVTIiwiY3J2IjoiUC0yNTYiLCJrdHkiOi"
-        "JFQyIsInVzZSI6ImVuYyIsIngiOiJmVU5NQjBCSE9WaGVuNW90VmRtam9NVFBRSURjU05aNldJTTdWNXNSN2VFIiwieSI6InZXYTBESUV"
-        "reFh0emMtcGxWNWwxVUZCWlJtZ1dKMUhNWFM5WEFKRmlWZlkifSwia2lkIjoia3hkRDBvclZQR29BeFdycUFNVGVRMFU1TVJvSzQ3dVp4"
-        "V2lTSmRnbzB0MCJ9..eT0dW5EScdCNt3FI.aVLGfY3Fc8j4pw-imH1i1-ZZpQFirI-47TBecRtRSMxjshMBPmQeHBUjJf2fLU648EBgN7"
-        "iqJoycqfc_6zwKBTb28u2YyqJOnR8ElSU0W1a7RoiojN7Z4RpIZvbeTVtATMHHXUCK68DTz6mBfIQ.SHYwxvU1GBWAOpaDS8TUJQ"
-    >>,
-    {ok, {Resource, ValidUntil}} = wapi_crypto:decrypt_resource_token(ResourceToken),
-    ?assertEqual(
-        {bank_card, #'BankCard'{
-            token = ?STRING,
-            bin = ?BIN(<<"4150399999000900">>),
-            masked_pan = ?LAST_DIGITS(<<"4150399999000900">>),
-            payment_system_deprecated = visa,
-            exp_date = #'BankCardExpDate'{month = 1, year = 2021},
-            cardholder_name = ?STRING
-        }},
-        Resource
-    ),
-    ?assertEqual(<<"2020-11-16T07:35:00.736Z">>, wapi_utils:deadline_to_binary(ValidUntil)).
 
 %% Utils
 

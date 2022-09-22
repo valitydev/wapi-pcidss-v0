@@ -4,7 +4,8 @@
 -include_lib("wapi_dummy_data.hrl").
 -include_lib("wapi_token_keeper_data.hrl").
 -include_lib("wapi_bouncer_data.hrl").
--include_lib("damsel/include/dmsl_domain_config_thrift.hrl").
+-include_lib("damsel/include/dmsl_domain_conf_thrift.hrl").
+-include_lib("damsel/include/dmsl_domain_thrift.hrl").
 
 -export([init_suite/2]).
 -export([init_suite/3]).
@@ -80,9 +81,9 @@ init_suite(Module, Config, WapiEnv) ->
         [
             {
                 'Repository',
-                {dmsl_domain_config_thrift, 'Repository'},
+                {dmsl_domain_conf_thrift, 'Repository'},
                 fun('Checkout', _) ->
-                    {ok, #'Snapshot'{
+                    {ok, #'domain_conf_Snapshot'{
                         version = 1,
                         domain = #{
                             ?PAYMENT_SYSTEM_REF(<<"VISA">>) =>

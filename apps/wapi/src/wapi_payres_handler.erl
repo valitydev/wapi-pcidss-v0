@@ -244,7 +244,6 @@ construct_bank_card(BankCard, CardData, BankInfo) ->
         bin => get_first6(CardNumber),
         last_digits => get_last4(CardNumber),
         payment_system => PaymentSystem,
-        payment_system_deprecated => wapi_bankcard:decode_payment_system(PaymentSystem),
         exp_date => ExpDate,
         cardholder_name => genlib_map:get(<<"cardHolder">>, CardData)
     }).
@@ -277,7 +276,6 @@ to_thrift(bank_card, BankCard) ->
         bin = maps:get(bin, BankCard),
         masked_pan = maps:get(last_digits, BankCard),
         payment_system = to_thrift(payment_system, maps:get(payment_system, BankCard)),
-        payment_system_deprecated = maps:get(payment_system_deprecated, BankCard),
         exp_date = to_thrift(exp_date, ExpDate),
         cardholder_name = genlib_map:get(cardholder_name, BankCard)
     };
