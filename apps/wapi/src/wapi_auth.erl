@@ -110,7 +110,7 @@ get_ip_address(SwagContext) ->
     end.
 
 get_ip_address_from_request(Request) ->
-    IPAddressHeader = genlib_app:env(capi, ip_address_header, <<"x-forwarded-for">>),
+    IPAddressHeader = genlib_app:env(wapi, ip_address_header, <<"x-forwarded-for">>),
     case Request of
         #{headers := #{IPAddressHeader := IPAddress}} ->
             parse_header_ip_address(IPAddress);
