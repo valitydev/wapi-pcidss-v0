@@ -107,7 +107,7 @@
   0},
  {<<"swag_server_payres">>,
   {git,"https://github.com/valitydev/swag-wallets",
-       {ref,"18d65a45267d9e6f96cf0d0242f213d0611b82df"}},
+       {ref,"64afbeb82b945476400458ce20559b27ce19f355"}},
   0},
  {<<"thrift">>,
   {git,"https://github.com/valitydev/thrift_erlang.git",
