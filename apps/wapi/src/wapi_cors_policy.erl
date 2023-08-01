@@ -11,9 +11,9 @@
 policy_init(Req) ->
     {ok, Req, undefined_state}.
 
--spec allowed_origins(cowboy_req:req(), any()) -> {'*', cowboy_req:req(), any()}.
-allowed_origins(Req, State) ->
-    {'*', Req, State}.
+-spec allowed_origins(cowboy_req:req(), any()) -> {'*', any()}.
+allowed_origins(_Req, State) ->
+    {'*', State}.
 
 -spec allowed_headers(cowboy_req:req(), any()) -> {[binary()], cowboy_req:req(), any()}.
 allowed_headers(Req, State) ->
