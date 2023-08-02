@@ -3,6 +3,8 @@
 -define(APP, wapi).
 
 -export([get_user_id/1]).
+-export([get_user_email/1]).
+-export([get_subject_id/1]).
 
 -export([preauthorize_api_key/1]).
 -export([authorize_api_key/3]).
@@ -31,6 +33,23 @@
 -spec get_user_id(auth_context()) -> binary() | undefined.
 get_user_id(?AUTHORIZED(#{metadata := Metadata})) ->
     get_metadata(get_metadata_mapped_key(user_id), Metadata).
+
+-spec get_user_email(auth_context()) -> binary() | undefined.
+get_user_email(?AUTHORIZED(#{metadata := Metadata})) ->
+    get_metadata(get_metadata_mapped_key(user_email), Metadata).
+
+-spec get_subject_id(auth_context()) -> binary() | undefined.
+get_subject_id(AuthContext) ->
+    case get_party_id(AuthContext) of
+        PartyId when is_binary(PartyId) ->
+            PartyId;
+        undefined ->
+            get_user_id(AuthContext)
+    end.
+
+-spec get_party_id(auth_context()) -> binary() | undefined.
+get_party_id(?AUTHORIZED(#{metadata := Metadata})) ->
+    get_metadata(get_metadata_mapped_key(party_id), Metadata).
 
 %%
 

@@ -51,6 +51,10 @@
 -export_type([request_result/0]).
 
 %% API
+%% @WARNING Must be refactored in case of different classes of users using this API
+%% See CAPI capi_handler
+%% https://github.com/valitydev/capi-v2/blob/2de9367561a511f0dc1448881201de48e9004c54/apps/capi/src/capi_handler.erl#L62
+-define(REALM, <<"external">>).
 
 -define(REQUEST_RESULT, wapi_req_result).
 
@@ -68,11 +72,14 @@ handle_request(Tag, OperationID, Req, SwagContext, Opts) ->
             })
     end.
 
-process_request(Tag, OperationID, Req, SwagContext0, Opts, WoodyContext) ->
+process_request(Tag, OperationID, Req, SwagContext0, Opts, WoodyContext0) ->
     _ = logger:info("Processing request ~p", [OperationID]),
     try
-        SwagContext = do_authorize_api_key(SwagContext0, WoodyContext),
+        SwagContext = do_authorize_api_key(SwagContext0, WoodyContext0),
+        AuthContext = get_auth_context(SwagContext),
+        WoodyContext = put_user_identity(WoodyContext0, AuthContext),
         Context = create_handler_context(OperationID, SwagContext, WoodyContext),
+        ok = set_context_meta(AuthContext),
         Handler = get_handler(Tag),
         {ok, RequestState} = Handler:prepare(OperationID, Req, Context, Opts),
         #{authorize := Authorize, process := Process} = RequestState,
@@ -140,6 +147,20 @@ make_token_context(#{cowboy_req := CowboyReq}) ->
             #{}
     end.
 
+put_user_identity(WoodyContext, AuthContext) ->
+    woody_user_identity:put(collect_user_identity(AuthContext), WoodyContext).
+
+get_auth_context(#{auth_context := AuthContext}) ->
+    AuthContext.
+
+collect_user_identity(AuthContext) ->
+    genlib_map:compact(#{
+        id => wapi_auth:get_subject_id(AuthContext),
+        %%TODO: Store user realm in authdata meta and extract it here
+        realm => ?REALM,
+        email => wapi_auth:get_user_email(AuthContext)
+    }).
+
 attach_deadline(#{'X-Request-Deadline' := Header}, Context) ->
     case wapi_utils:parse_deadline(Header) of
         {ok, Deadline} when Deadline /= undefined ->
@@ -149,3 +170,11 @@ attach_deadline(#{'X-Request-Deadline' := Header}, Context) ->
     end;
 attach_deadline(_, Context) ->
     Context.
+
+set_context_meta(AuthContext) ->
+    Meta = #{
+        metadata => #{
+            'user-identity' => collect_user_identity(AuthContext)
+        }
+    },
+    scoper:add_meta(Meta).
