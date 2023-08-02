@@ -76,9 +76,10 @@ process_request(Tag, OperationID, Req, SwagContext0, Opts, WoodyContext0) ->
     _ = logger:info("Processing request ~p", [OperationID]),
     try
         SwagContext = do_authorize_api_key(SwagContext0, WoodyContext0),
-        WoodyContext = put_user_identity(WoodyContext0, get_auth_context(SwagContext)),
+        AuthContext = get_auth_context(SwagContext),
+        WoodyContext = put_user_identity(WoodyContext0, AuthContext),
         Context = create_handler_context(OperationID, SwagContext, WoodyContext),
-        ok = set_context_meta(get_auth_context(SwagContext)),
+        ok = set_context_meta(AuthContext),
         Handler = get_handler(Tag),
         {ok, RequestState} = Handler:prepare(OperationID, Req, Context, Opts),
         #{authorize := Authorize, process := Process} = RequestState,
