@@ -64,7 +64,7 @@ decode_context(#decision_Context{fragments = Fragments}) ->
     maps:map(fun(_, Fragment) -> decode_fragment(Fragment) end, Fragments).
 
 decode_fragment(#ctx_ContextFragment{type = v1_thrift_binary, content = Content}) ->
-    Type = {struct, struct, {bouncer_context_v1_thrift, 'ContextFragment'}},
+    Type = {struct, struct, {bouncer_cxt_v1_thrift, 'ContextFragment'}},
     Codec = thrift_strict_binary_codec:new(Content),
     {ok, Fragment, _} = thrift_strict_binary_codec:read(Codec, Type),
     Fragment.

@@ -108,7 +108,7 @@ encode_context(Context) ->
     }.
 
 encode_context_content(Context) ->
-    Type = {struct, struct, {bouncer_context_v1_thrift, 'ContextFragment'}},
+    Type = {struct, struct, {bouncer_cxt_v1_thrift, 'ContextFragment'}},
     Codec = thrift_strict_binary_codec:new(),
     case thrift_strict_binary_codec:write(Codec, Type, Context) of
         {ok, Codec1} ->
