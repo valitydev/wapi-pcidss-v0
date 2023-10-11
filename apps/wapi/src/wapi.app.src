@@ -26,7 +26,10 @@
         binbase_proto,
         bankcard_validator,
         bouncer_client,
-        token_keeper_client
+        token_keeper_client,
+        opentelemetry_api,
+        opentelemetry_exporter,
+        opentelemetry
     ]},
     {env, []}
 ]}.

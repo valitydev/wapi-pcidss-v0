@@ -14,7 +14,7 @@
 -spec call_service(service_name(), woody:func(), woody:args(), woody_context:ctx()) -> woody:result().
 call_service(ServiceName, Function, Args, Context) ->
     EventHandlerOpts = genlib_app:env(wapi, scoper_event_handler_options, #{}),
-    EventHandler = {scoper_woody_event_handler, EventHandlerOpts},
+    EventHandler = {wapi_woody_event_handler, EventHandlerOpts},
     call_service(ServiceName, Function, Args, Context, EventHandler).
 
 -spec call_service(service_name(), woody:func(), woody:args(), woody_context:ctx(), woody:ev_handler()) ->
