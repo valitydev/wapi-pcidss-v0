@@ -80,6 +80,7 @@ process_request(Tag, OperationID, Req, SwagContext0, Opts, WoodyContext0) ->
         WoodyContext = put_user_identity(WoodyContext0, AuthContext),
         Context = create_handler_context(OperationID, SwagContext, WoodyContext),
         ok = set_context_meta(AuthContext),
+        ok = sync_scoper_otel_meta(),
         Handler = get_handler(Tag),
         {ok, RequestState} = Handler:prepare(OperationID, Req, Context, Opts),
         #{authorize := Authorize, process := Process} = RequestState,
@@ -178,3 +179,7 @@ set_context_meta(AuthContext) ->
         }
     },
     scoper:add_meta(Meta).
+
+sync_scoper_otel_meta() ->
+    _ = otel_span:set_attributes(otel_tracer:current_span_ctx(), genlib_map:flatten_join($., scoper:collect())),
+    ok.
