@@ -60,7 +60,7 @@
 
 -spec handle_request(tag(), operation_id(), req_data(), swagger_context(), opts()) -> request_result().
 handle_request(Tag, OperationID, Req, SwagContext, Opts) ->
-    ok = set_otel_context(Context),
+    ok = set_otel_context(SwagContext),
     try
         WoodyContext = attach_deadline(Req, create_woody_context(Tag, Req)),
         process_request(Tag, OperationID, Req, SwagContext, Opts, WoodyContext)
