@@ -60,6 +60,7 @@
 
 -spec handle_request(tag(), operation_id(), req_data(), swagger_context(), opts()) -> request_result().
 handle_request(Tag, OperationID, Req, SwagContext, Opts) ->
+    ok = set_otel_context(Context),
     try
         WoodyContext = attach_deadline(Req, create_woody_context(Tag, Req)),
         process_request(Tag, OperationID, Req, SwagContext, Opts, WoodyContext)
@@ -80,7 +81,6 @@ process_request(Tag, OperationID, Req, SwagContext0, Opts, WoodyContext0) ->
         WoodyContext = put_user_identity(WoodyContext0, AuthContext),
         Context = create_handler_context(OperationID, SwagContext, WoodyContext),
         ok = set_context_meta(AuthContext),
-        ok = sync_scoper_otel_meta(),
         Handler = get_handler(Tag),
         {ok, RequestState} = Handler:prepare(OperationID, Req, Context, Opts),
         #{authorize := Authorize, process := Process} = RequestState,
@@ -180,6 +180,10 @@ set_context_meta(AuthContext) ->
     },
     scoper:add_meta(Meta).
 
-sync_scoper_otel_meta() ->
-    _ = otel_span:set_attributes(otel_tracer:current_span_ctx(), genlib_map:flatten_join($., scoper:collect())),
+set_otel_context(#{cowboy_req := Req}) ->
+    Headers = cowboy_req:headers(Req),
+    %% Implicitly puts OTEL context into process dictionary.
+    %% Since cowboy does not reuse process for other requests, we don't care
+    %% about cleaning it up.
+    _OtelCtx = otel_propagator_text_map:extract(maps:to_list(Headers)),
     ok.
