@@ -3,6 +3,9 @@
 -include_lib("fistful_proto/include/ff_proto_base_thrift.hrl").
 -include_lib("cds_proto/include/cds_proto_storage_thrift.hrl").
 
+-include_lib("opentelemetry_api/include/otel_tracer.hrl").
+-include_lib("opentelemetry_api/include/opentelemetry.hrl").
+
 -behaviour(swag_server_payres_logic_handler).
 %% swag_server_payres_logic_handler callbacks
 -export([map_error/2]).
@@ -69,7 +72,6 @@ authorize_api_key(OperationID, ApiKey, _Context, _Opts) ->
     %% request validation checks before this stage.
     %% But since a decent chunk of authorization logic is already defined in the handler function
     %% it is probably easier to move it there in its entirety.
-    ok = scoper:add_scope('swag.server', #{api => wallet, operation_id => OperationID}),
     case wapi_auth:preauthorize_api_key(ApiKey) of
         {ok, Context} ->
             {true, Context};
@@ -80,7 +82,12 @@ authorize_api_key(OperationID, ApiKey, _Context, _Opts) ->
 
 -spec handle_request(operation_id(), req_data(), request_context(), handler_opts()) -> request_result().
 handle_request(OperationID, Req, SwagContext, Opts) ->
-    wapi_handler:handle_request(payres, OperationID, Req, SwagContext, Opts).
+    SpanName = <<"server ", (atom_to_binary(OperationID))/binary>>,
+    ?with_span(SpanName, #{kind => ?SPAN_KIND_SERVER}, fun(_SpanCtx) ->
+        scoper:scope('swag.server', #{api => wallet, operation_id => OperationID}, fun() ->
+            wapi_handler:handle_request(payres, OperationID, Req, SwagContext, Opts)
+        end)
+    end).
 
 -spec prepare(operation_id(), req_data(), handler_context(), handler_opts()) -> {ok, request_state()} | no_return().
 prepare(OperationID = 'StoreBankCard', #{'BankCard' := CardData}, Context, _Opts) ->

@@ -8,6 +8,7 @@
         thrift,
         cds_proto,
         woody,
-        scoper
+        scoper,
+        opentelemetry_api
     ]}
 ]}.
