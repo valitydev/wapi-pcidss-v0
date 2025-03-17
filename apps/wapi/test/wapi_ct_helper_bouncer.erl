@@ -1,9 +1,7 @@
 -module(wapi_ct_helper_bouncer).
 
--include_lib("common_test/include/ct.hrl").
 -include_lib("wapi_dummy_data.hrl").
 -include_lib("wapi_bouncer_data.hrl").
--include_lib("stdlib/include/assert.hrl").
 
 -export([mock_client/1]).
 -export([mock_arbiter/2]).
@@ -81,7 +79,7 @@ combine_fragments(Fragments) ->
     [Fragment | Rest] = maps:values(Fragments),
     lists:foldl(fun combine_fragments/2, Fragment, Rest).
 
-combine_fragments(Fragment1 = #ctx_v1_ContextFragment{}, Fragment2 = #ctx_v1_ContextFragment{}) ->
+combine_fragments(#ctx_v1_ContextFragment{} = Fragment1, #ctx_v1_ContextFragment{} = Fragment2) ->
     combine_records(Fragment1, Fragment2).
 
 combine_records(Record1, Record2) ->

@@ -2,7 +2,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--include_lib("fistful_proto/include/ff_proto_base_thrift.hrl").
+-include_lib("fistful_proto/include/fistful_fistful_base_thrift.hrl").
 -include_lib("cds_proto/include/cds_proto_storage_thrift.hrl").
 -include_lib("binbase_proto/include/binbase_binbase_thrift.hrl").
 -include_lib("stdlib/include/assert.hrl").
@@ -251,8 +251,8 @@ create_resource_test(C) ->
         <<"token">> := ResourceToken
     }} = call_store_bank_card(CardNumber, C),
     {ok, {{bank_card, BankCard}, _ValidUntil}} = wapi_crypto:decrypt_resource_token(ResourceToken),
-    ?assertEqual(?BIN(CardNumber), BankCard#'BankCard'.bin),
-    ?assertEqual(?LAST_DIGITS(CardNumber), BankCard#'BankCard'.masked_pan).
+    ?assertEqual(?BIN(CardNumber), BankCard#fistful_base_BankCard.bin),
+    ?assertEqual(?LAST_DIGITS(CardNumber), BankCard#fistful_base_BankCard.masked_pan).
 
 -spec valid_until_resource_test(config()) -> test_return().
 valid_until_resource_test(C) ->

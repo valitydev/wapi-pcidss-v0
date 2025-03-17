@@ -132,7 +132,7 @@ process_woody_error(_Source, resource_unavailable, _Details) ->
 process_woody_error(_Source, result_unknown, _Details) ->
     wapi_handler_utils:reply_error(504).
 
-do_authorize_api_key(SwagContext = #{auth_context := PreAuthContext}, WoodyContext) ->
+do_authorize_api_key(#{auth_context := PreAuthContext} = SwagContext, WoodyContext) ->
     case wapi_auth:authorize_api_key(PreAuthContext, make_token_context(SwagContext), WoodyContext) of
         {ok, AuthContext} ->
             SwagContext#{auth_context => AuthContext};

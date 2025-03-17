@@ -1,6 +1,6 @@
 -module(wapi_payres_handler).
 
--include_lib("fistful_proto/include/ff_proto_base_thrift.hrl").
+-include_lib("fistful_proto/include/fistful_fistful_base_thrift.hrl").
 -include_lib("cds_proto/include/cds_proto_storage_thrift.hrl").
 
 -include_lib("opentelemetry_api/include/otel_tracer.hrl").
@@ -90,7 +90,7 @@ handle_request(OperationID, Req, SwagContext, Opts) ->
     end).
 
 -spec prepare(operation_id(), req_data(), handler_context(), handler_opts()) -> {ok, request_state()} | no_return().
-prepare(OperationID = 'StoreBankCard', #{'BankCard' := CardData}, Context, _Opts) ->
+prepare('StoreBankCard' = OperationID, #{'BankCard' := CardData}, Context, _Opts) ->
     Authorize = mk_auth_function(OperationID, Context),
     Process = fun() ->
         CVV = maps:get(<<"cvv">>, CardData, undefined),
@@ -98,7 +98,7 @@ prepare(OperationID = 'StoreBankCard', #{'BankCard' := CardData}, Context, _Opts
         wapi_handler_utils:reply_ok(201, decode_bank_card(BankCard, AuthData))
     end,
     {ok, #{authorize => Authorize, process => Process}};
-prepare(OperationID = 'GetBankCard', #{'token' := Token}, Context, _Opts) ->
+prepare('GetBankCard' = OperationID, #{'token' := Token}, Context, _Opts) ->
     Authorize = mk_auth_function(OperationID, Context),
     Process = fun() ->
         try
@@ -145,8 +145,8 @@ decrypt_token(Token) ->
                     _ ->
                         Resource
                 end,
-            LastDigits = wapi_utils:get_last_pan_digits(BankCard#'BankCard'.masked_pan),
-            Bin = BankCard#'BankCard'.bin,
+            LastDigits = wapi_utils:get_last_pan_digits(BankCard#fistful_base_BankCard.masked_pan),
+            Bin = BankCard#fistful_base_BankCard.bin,
             genlib_map:compact(
                 #{
                     <<"token">> => Token,
@@ -278,7 +278,7 @@ to_thrift(card_data, Data) ->
     };
 to_thrift(bank_card, BankCard) ->
     ExpDate = genlib_map:get(exp_date, BankCard),
-    #'BankCard'{
+    #fistful_base_BankCard{
         token = maps:get(token, BankCard),
         bin = maps:get(bin, BankCard),
         masked_pan = maps:get(last_digits, BankCard),
@@ -289,7 +289,7 @@ to_thrift(bank_card, BankCard) ->
 to_thrift(exp_date, undefined) ->
     undefined;
 to_thrift(exp_date, {Month, Year}) ->
-    #'BankCardExpDate'{
+    #fistful_base_BankCardExpDate{
         month = Month,
         year = Year
     };
@@ -302,7 +302,7 @@ to_thrift(session_data, undefined) ->
 to_thrift(payment_system, undefined) ->
     undefined;
 to_thrift(payment_system, ID) ->
-    #'PaymentSystemRef'{id = ID}.
+    #fistful_base_PaymentSystemRef{id = ID}.
 
 decode_bank_card(BankCard, AuthData) ->
     #{
