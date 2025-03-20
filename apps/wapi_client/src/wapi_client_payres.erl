@@ -10,12 +10,12 @@
 store_bank_card(Context, Request) ->
     Params = #{body => Request},
     {Url, PreparedParams, Opts} = wapi_client_lib:make_request(Context, Params),
-    Response = swag_client_payres_payment_resources_api:store_bank_card(Url, PreparedParams, Opts),
+    Response = swag_client_payres_withdrawal_resources_api:store_bank_card(Url, PreparedParams, Opts),
     wapi_client_lib:handle_response(Response).
 
 -spec get_bank_card(context(), binary()) -> {ok, #{binary() => _}} | {error, term()}.
 get_bank_card(Context, Token) ->
     Params = #{binding => #{<<"token">> => Token}},
     {Url, PreparedParams, Opts} = wapi_client_lib:make_request(Context, Params),
-    Response = swag_client_payres_payment_resources_api:get_bank_card(Url, PreparedParams, Opts),
+    Response = swag_client_payres_withdrawal_resources_api:get_bank_card(Url, PreparedParams, Opts),
     wapi_client_lib:handle_response(Response).

@@ -9,6 +9,8 @@
         public_key,
         genlib,
         lechiffre,
+        prometheus,
+        prometheus_cowboy,
         woody,
         wapi_woody_client,
         scoper,
