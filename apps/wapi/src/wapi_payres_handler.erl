@@ -217,7 +217,11 @@ validate_card_data(CardData, ExtraCardData, SessionData, PaymentSystem, WoodyCon
     case bankcard_validator:validate(BankCardData, PaymentSystem, ValidationEnv, WoodyContext) of
         ok ->
             ok;
-        {error, _Error} ->
+        {error, Error} ->
+            %% FIXME/DEBUG Remove this log line
+            ok = logger:warning("Invalid card ~p, payment system ~p, extras ~p, error: ~p", [
+                CardData, PaymentSystem, ExtraCardData, Error
+            ]),
             wapi_handler:throw_result(
                 wapi_handler_utils:reply_ok(
                     422,
