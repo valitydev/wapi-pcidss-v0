@@ -4,7 +4,7 @@
 -include_lib("wapi_dummy_data.hrl").
 -include_lib("wapi_token_keeper_data.hrl").
 -include_lib("wapi_bouncer_data.hrl").
--include_lib("damsel/include/dmsl_domain_conf_thrift.hrl").
+-include_lib("damsel/include/dmsl_domain_conf_v2_thrift.hrl").
 -include_lib("damsel/include/dmsl_domain_thrift.hrl").
 
 -export([init_suite/2]).
@@ -79,27 +79,45 @@ init_suite(Module, Config, WapiEnv) ->
             start_app(scoper),
     ServiceURLs = mock_services_(
         [
-            {
-                'Repository',
-                {dmsl_domain_conf_thrift, 'Repository'},
-                fun('Checkout', _) ->
-                    {ok, #'domain_conf_Snapshot'{
-                        version = 1,
-                        domain = #{
-                            ?PAYMENT_SYSTEM_REF(<<"VISA">>) =>
-                                ?PAYMENT_SYSTEM_OBJ(
-                                    <<"VISA">>,
-                                    bankcard_validator_legacy:get_payment_system_ruleset(<<"VISA">>)
-                                ),
-                            ?PAYMENT_SYSTEM_REF(<<"MASTERCARD">>) =>
-                                ?PAYMENT_SYSTEM_OBJ(
-                                    <<"MASTERCARD">>,
-                                    bankcard_validator_legacy:get_payment_system_ruleset(<<"MASTERCARD">>)
-                                )
+            {'RepositoryClient', {dmsl_domain_conf_v2_thrift, 'RepositoryClient'}, fun(
+                'CheckoutObject', {{version, ?INTEGER}, ?PAYMENT_SYSTEM_REF(<<"VISA">>)}
+            ) ->
+                {ok, #domain_conf_v2_VersionedObject{
+                    info = #domain_conf_v2_VersionedObjectInfo{
+                        version = ?INTEGER,
+                        changed_at = genlib_rfc3339:format(genlib_time:unow(), second),
+                        changed_by = #domain_conf_v2_Author{
+                            id = ?STRING,
+                            name = ?STRING,
+                            email = ?STRING
                         }
-                    }}
-                end
-            }
+                    },
+                    object = ?PAYMENT_SYSTEM_OBJ(
+                        <<"VISA">>,
+                        bankcard_validator_legacy:get_payment_system_ruleset(<<"VISA">>)
+                    )
+                }}
+            end},
+            {'RepositoryClient', {dmsl_domain_conf_v2_thrift, 'RepositoryClient'}, fun(
+                'CheckoutObject', {{version, ?INTEGER}, ?PAYMENT_SYSTEM_REF(<<"MASTERCARD">>)}
+            ) ->
+                {ok, #domain_conf_v2_VersionedObject{
+                    info = #domain_conf_v2_VersionedObjectInfo{
+                        version = ?INTEGER,
+                        changed_at = genlib_rfc3339:format(genlib_time:unow(), second),
+                        changed_by = #domain_conf_v2_Author{
+                            id = ?STRING,
+                            name = ?STRING,
+                            email = ?STRING
+                        }
+                    },
+                    object = ?PAYMENT_SYSTEM_OBJ(
+                        <<"MASTERCARD">>,
+                        bankcard_validator_legacy:get_payment_system_ruleset(<<"MASTERCARD">>)
+                    )
+                }}
+            end},
+            {'Repository', {dmsl_domain_conf_v2_thrift, 'Repository'}, fun('GetLatestVersion', _) -> {ok, ?INTEGER} end}
         ],
         SupPid
     ),
