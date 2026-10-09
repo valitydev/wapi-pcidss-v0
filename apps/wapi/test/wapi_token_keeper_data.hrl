@@ -2,6 +2,7 @@
 -define(wapi_token_keeper_data_included__, ok).
 
 -define(TK_AUTHORITY_KEYCLOAK, <<"test.valitydev.keycloak">>).
+-define(TK_AUTHORITY_APIKEYMGMT, <<"dev.vality.apikeymgmt">>).
 
 -define(TK_META_PARTY_ID, <<"test.valitydev.party.id">>).
 -define(TK_META_TOKEN_CONSUMER, <<"test.valitydev.capi.consumer">>).

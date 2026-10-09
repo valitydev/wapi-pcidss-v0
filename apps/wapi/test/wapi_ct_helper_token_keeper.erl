@@ -6,6 +6,7 @@
 -include_lib("wapi_token_keeper_data.hrl").
 
 -define(USER_ID, ?STRING).
+-define(PARTY_ID, ?STRING).
 -define(USER_EMAIL, <<"bla@bla.ru">>).
 -define(TOKEN_LIFETIME, 259200).
 
@@ -16,6 +17,7 @@
 -export([mock_token/2]).
 -export([mock_invalid_token/1]).
 -export([mock_user_session_token/1]).
+-export([mock_api_key_token/1]).
 
 -spec mock_token(token_handler(), sup_or_config()) -> list(app_name()).
 mock_token(HandlerFun, SupOrConfig) ->
@@ -68,6 +70,18 @@ mock_user_session_token(SupOrConfig) ->
     end),
     mock_token(Handler, SupOrConfig).
 
+-spec mock_api_key_token(sup_or_config()) -> list(app_name()).
+mock_api_key_token(SupOrConfig) ->
+    Handler = make_authenticator_handler(fun() ->
+        AuthParams = #{
+            method => <<"ApiKeyToken">>,
+            token => #{id => ?STRING},
+            scope => [#{party => #{id => ?PARTY_ID}}]
+        },
+        {?TK_AUTHORITY_APIKEYMGMT, create_bouncer_context(AuthParams), api_key_metadata()}
+    end),
+    mock_token(Handler, SupOrConfig).
+
 %%
 
 -spec make_authenticator_handler(function()) -> token_handler().
@@ -92,7 +106,16 @@ user_session_metadata() ->
         ?TK_META_USER_EMAIL => ?USER_EMAIL
     }).
 
+api_key_metadata() ->
+    genlib_map:compact(#{
+        ?TK_META_PARTY_ID => ?PARTY_ID
+    }).
+
 %%
+
+create_bouncer_context(AuthParams) ->
+    Fragment0 = bouncer_context_helpers:make_auth_fragment(AuthParams),
+    encode_context(Fragment0).
 
 create_bouncer_context(AuthParams, UserParams) ->
     Fragment0 = bouncer_context_helpers:make_auth_fragment(AuthParams),

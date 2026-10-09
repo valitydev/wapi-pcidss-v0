@@ -79,45 +79,33 @@ init_suite(Module, Config, WapiEnv) ->
             start_app(scoper),
     ServiceURLs = mock_services_(
         [
-            {'RepositoryClient', {dmsl_domain_conf_v2_thrift, 'RepositoryClient'}, fun(
-                'CheckoutObject', {{version, ?INTEGER}, ?PAYMENT_SYSTEM_REF(<<"VISA">>)}
-            ) ->
-                {ok, #domain_conf_v2_VersionedObject{
-                    info = #domain_conf_v2_VersionedObjectInfo{
-                        version = ?INTEGER,
-                        changed_at = genlib_rfc3339:format(genlib_time:unow(), second),
-                        changed_by = #domain_conf_v2_Author{
-                            id = ?STRING,
-                            name = ?STRING,
-                            email = ?STRING
-                        }
-                    },
-                    object = ?PAYMENT_SYSTEM_OBJ(
-                        <<"VISA">>,
-                        bankcard_validator_legacy:get_payment_system_ruleset(<<"VISA">>)
-                    )
-                }}
-            end},
-            {'RepositoryClient', {dmsl_domain_conf_v2_thrift, 'RepositoryClient'}, fun(
-                'CheckoutObject', {{version, ?INTEGER}, ?PAYMENT_SYSTEM_REF(<<"MASTERCARD">>)}
-            ) ->
-                {ok, #domain_conf_v2_VersionedObject{
-                    info = #domain_conf_v2_VersionedObjectInfo{
-                        version = ?INTEGER,
-                        changed_at = genlib_rfc3339:format(genlib_time:unow(), second),
-                        changed_by = #domain_conf_v2_Author{
-                            id = ?STRING,
-                            name = ?STRING,
-                            email = ?STRING
-                        }
-                    },
-                    object = ?PAYMENT_SYSTEM_OBJ(
-                        <<"MASTERCARD">>,
-                        bankcard_validator_legacy:get_payment_system_ruleset(<<"MASTERCARD">>)
-                    )
-                }}
-            end},
-            {'Repository', {dmsl_domain_conf_v2_thrift, 'Repository'}, fun('GetLatestVersion', _) -> {ok, ?INTEGER} end}
+            {
+                'RepositoryClient',
+                {dmsl_domain_conf_v2_thrift, 'RepositoryClient'},
+                fun
+                    ('CheckoutObject', {{version, ?INTEGER}, ?PAYMENT_SYSTEM_REF(<<"VISA">>)}) ->
+                        Object = ?PAYMENT_SYSTEM_OBJ(
+                            <<"VISA">>,
+                            bankcard_validator_legacy:get_payment_system_ruleset(<<"VISA">>)
+                        ),
+                        {ok, dmt_wrap_object(Object)};
+                    ('CheckoutObject', {{version, ?INTEGER}, ?PAYMENT_SYSTEM_REF(<<"MASTERCARD">>)}) ->
+                        Object = ?PAYMENT_SYSTEM_OBJ(
+                            <<"MASTERCARD">>,
+                            bankcard_validator_legacy:get_payment_system_ruleset(<<"MASTERCARD">>)
+                        ),
+                        {ok, dmt_wrap_object(Object)};
+                    ('CheckoutObject', _) ->
+                        woody_error:raise(business, #domain_conf_v2_ObjectNotFound{})
+                end
+            },
+            {
+                'Repository',
+                {dmsl_domain_conf_v2_thrift, 'Repository'},
+                fun('GetLatestVersion', _) ->
+                    {ok, ?INTEGER}
+                end
+            }
         ],
         SupPid
     ),
@@ -249,3 +237,17 @@ make_url(ServiceName, Port) ->
 
 make_path(ServiceName) ->
     "/" ++ atom_to_list(ServiceName).
+
+dmt_wrap_object(Object) ->
+    #domain_conf_v2_VersionedObject{
+        info = #domain_conf_v2_VersionedObjectInfo{
+            version = ?INTEGER,
+            changed_at = genlib_rfc3339:format(genlib_time:unow(), second),
+            changed_by = #domain_conf_v2_Author{
+                id = ?STRING,
+                name = ?STRING,
+                email = ?STRING
+            }
+        },
+        object = Object
+    }.
