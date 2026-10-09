@@ -42,13 +42,20 @@
 -spec all() -> [test_case_name() | {group, group_name()}].
 all() ->
     [
-        {group, default_auth},
+        {group, operations_by_api_key_token},
+        {group, operations_by_user_session_token},
         {group, custom_auth}
     ].
 
 -spec groups() -> [{group_name(), [test_case_name()]}].
 groups() ->
     [
+        {operations_by_api_key_token, [], [
+            {group, default_auth}
+        ]},
+        {operations_by_user_session_token, [], [
+            {group, default_auth}
+        ]},
         {default_auth, [
             store_bank_card_success_test,
             store_bank_card_expired_test,
@@ -82,7 +89,12 @@ end_per_suite(C) ->
     ok.
 
 -spec init_per_group(group_name(), config()) -> config().
-init_per_group(default_auth, Config) ->
+init_per_group(operations_by_api_key_token, Config) ->
+    SupPid = wapi_ct_helper:start_mocked_service_sup(?MODULE),
+    _ = wapi_ct_helper_token_keeper:mock_api_key_token(SupPid),
+    _ = wapi_ct_helper_bouncer:mock_arbiter(wapi_ct_helper_bouncer:judge_always_allowed(), SupPid),
+    [{group_test_sup, SupPid}, {context, wapi_ct_helper:get_context(?API_TOKEN)} | Config];
+init_per_group(operations_by_user_session_token, Config) ->
     SupPid = wapi_ct_helper:start_mocked_service_sup(?MODULE),
     _ = wapi_ct_helper_token_keeper:mock_user_session_token(SupPid),
     _ = wapi_ct_helper_bouncer:mock_arbiter(wapi_ct_helper_bouncer:judge_always_allowed(), SupPid),
